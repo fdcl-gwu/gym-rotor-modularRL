@@ -27,20 +27,20 @@ class Learner:
         self.args = args
         self.framework = self.args.framework
         if self.framework in ("CTDE","DTDE"):
-            """--------------------------------------------------------------------------------------------------
-            | Agents  | Observations           | obs_dim | Actions:       | act_dim | Rewards                   |
-            | #agent1 | {ex, ev, b3, ew12, eIx} | 15      | {f_total, tau} | 4       | f(ex, ev, eb3, ew12, eIx) |
-            | #agent2 | {b1, eW3, eb1, eIb1}    | 6       | {M3}           | 1       | f(eb1, eW3, eIb1)         |
-            --------------------------------------------------------------------------------------------------"""
+            """----------------------------------------------------------------------------------------------
+            | Agents  | Observations           | obs_dim | Actions:       | act_dim | Rewards               |
+            | #agent1 | {ex, ev, b3, ew12, eIx} | 15      | {f_total, tau} | 4       | f(ex, ev, ew12, eIx) |
+            | #agent2 | {b1, eW3, eb1, eIb1}    | 6       | {M3}           | 1       | f(eb1, eW3, eIb1)    |
+            ----------------------------------------------------------------------------------------------"""
             self.env = DecoupledWrapper()
             self.args.N = 2  # num of agents
             self.args.obs_dim_n = [15, 6]
             self.args.action_dim_n = [4, 1]
         elif self.framework == "SARL":
-            """------------------------------------------------------------------------------------------------------------------
-            | Agents  | Observations                    | obs_dim | Actions:     | act_dim | Rewards                            |
-            | #agent1 | {ex, ev, R, eW, eIx, eb1, eIb1} | 23      | {f_total, M} | 4       | f(ex, ev, eb1, eb3, eW, eIx, eIb1) |
-            ------------------------------------------------------------------------------------------------------------------"""
+            """------------------------------------------------------------------------------------------------------------
+            | Agents  | Observations                    | obs_dim | Actions:     | act_dim | Rewards                       |
+            | #agent1 | {ex, ev, R, eW, eIx, eb1, eIb1} | 23      | {f_total, M} | 4       | f(ex, ev, eb1, eW, eIx, eIb1) |
+            -------------------------------------------------------------------------------------------------------------"""
             self.env = CoupledWrapper()
             self.args.N = 1  # num of agents
             self.args.obs_dim_n = [23]
@@ -246,7 +246,7 @@ class Learner:
 
                 # Generate trajectory:
                 state = eval_env.get_current_state()
-                xd, vd, b1d, b3d, Wd = self.trajectory.get_desired(state, mode)
+                xd, vd, b1d, Wd = self.trajectory.get_desired(state, mode)
                 eval_env.set_goal_pos(xd, b1d)
                 error_obs_n, error_state = self.trajectory.get_error_state(self.framework)
 
@@ -268,7 +268,7 @@ class Learner:
                     eIx, eb1, eIb1 = error_state[3], error_state[4], error_state[5]
                     act_list.append(action)
                     obs_list.append(np.concatenate((state, eIx, eb1, eIb1), axis=None))
-                    cmd_list.append(np.concatenate((xd, vd, b1d, b3d, Wd), axis=None))
+                    cmd_list.append(np.concatenate((xd, vd, b1d, Wd), axis=None))
 
                 # Episode termination:
                 if any(done_n) or episode_timesteps == self.eval_max_steps:

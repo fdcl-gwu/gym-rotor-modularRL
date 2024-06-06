@@ -19,9 +19,6 @@ class CoupledWrapper(QuadEnv):
         args = parser.parse_args()
         self.alpha, self.beta = args.alpha, args.beta # addressing noise or delay
 
-        # b3d commands:
-        self.b3d = np.array([0.,0.,1])
-
         # limits of states:
         self.eIx_lim  = 10.0 
         self.eIb1_lim = 10.0 
@@ -37,11 +34,10 @@ class CoupledWrapper(QuadEnv):
         # Reset errors:
         self.ex, self.ev = np.zeros(3), np.zeros(3)
         _, _, R, _ = state_decomposition(self.state) # decomposing state vectors
-        b1 = R @ np.array([1.,0.,0.])
-        b3 = R @ np.array([0.,0.,1.])
+        b1 = R @ self.e1
+        b3 = R @ self.e3
         b1c = -(hat(b3) @ hat(b3)) @ self.b1d # desired b1 
         self.eb1 = norm_ang_btw_two_vectors(b1c, b1) # b1 error, [-1, 1)
-        self.eb3 = norm_ang_btw_two_vectors(self.b3d, b3) # b3 error, [-1, 1)
 
         # Reset integral terms:
         self.eIx  = np.zeros(3)
@@ -91,7 +87,6 @@ class CoupledWrapper(QuadEnv):
 
         b1c = -(hat(b3) @ hat(b3)) @ self.b1d # desired b1 
         self.eb1 = norm_ang_btw_two_vectors(b1c, b1) # b1 error, [-1, 1)
-        self.eb3 = norm_ang_btw_two_vectors(self.b3d, b3) # b3 error, [-1, 1)
         self.eIR.integrate(-self.beta*self.eIR.error + self.eb1*np.pi, self.dt) # b1 integral error
         self.eIb1 = clip(self.eIR.error/self.eIb1_lim, -self.sat_sigma, self.sat_sigma)
 
@@ -111,10 +106,9 @@ class CoupledWrapper(QuadEnv):
         reward_eV   = -self.Cv*(norm(self.ev, 2)**2)
         reward_eb1  = -self.Cb1*abs(self.eb1)
         reward_eIb1 = -self.CIb1*abs(self.eIb1)
-        reward_eb3  = -self.Cb3*abs(self.eb3)
         reward_eW   = -self.CW*(norm(W, 2)**2)
         
-        rwd = reward_eX + reward_eIX + reward_eV + reward_eb1 + reward_eIb1 + reward_eb3 + reward_eW
+        rwd = reward_eX + reward_eIX + reward_eV + reward_eb1 + reward_eIb1 + reward_eW
 
         return [rwd]
 

@@ -76,13 +76,12 @@ class QuadEnv(gym.Env):
         self.Cv  = args.Cv
         self.Cb1  = args.Cb1
         self.CIb1 = args.CIb1
-        self.Cb3  = args.Cb3
         self.CW = args.Cw12
-        self.reward_min = -np.ceil(self.Cx+self.CIx+self.Cv+self.Cb1+self.CIb1+self.Cb3+self.CW)
+        self.reward_min = -np.ceil(self.Cx+self.CIx+self.Cv+self.Cb1+self.CIb1+self.CW)
         if self.framework in ("CTDE","DTDE"):
             # Agent1's reward:
             self.Cw12 = args.Cw12
-            self.reward_min_1 = -np.ceil(self.Cx+self.CIx+self.Cv+self.Cb3+self.Cw12)
+            self.reward_min_1 = -np.ceil(self.Cx+self.CIx+self.Cv+self.Cw12)
             # Agent2's reward:
             self.CW3 = args.CW3
             self.reward_min_2 = -np.ceil(self.Cb1+self.CW3+self.CIb1)

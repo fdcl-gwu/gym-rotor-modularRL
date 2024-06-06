@@ -74,8 +74,7 @@ elif args.framework == "SARL":
 xd1, xd2, xd3 = cmd[:, 0]*env.x_lim, cmd[:, 1]*env.x_lim, cmd[:, 2]*env.x_lim
 vd1, vd2, vd3 = cmd[:, 3]*env.v_lim, cmd[:, 4]*env.v_lim, cmd[:, 5]*env.v_lim
 b1d1, b1d2, b1d3 = cmd[:, 6], cmd[:, 7], cmd[:, 8]
-b3d1, b3d2, b3d3 = cmd[:, 9], cmd[:, 10], cmd[:, 11]
-Wd1, Wd2, Wd3 = cmd[:, 12]*env.W_lim, cmd[:, 13]*env.W_lim, cmd[:, 14]*env.W_lim
+Wd1, Wd2, Wd3 = cmd[:, 9]*env.W_lim, cmd[:, 10]*env.W_lim, cmd[:, 11]*env.W_lim
 Rd = np.eye(3) # arbitrary desired attitude
 
 #######################################################################
@@ -263,20 +262,17 @@ axs[2, 1].set_ylabel('$R_{32}$', size=fontsize)
 axs[2, 1].set_xlabel('Time [s]', size=fontsize)
 # axs[2, 1].set_title('$R_{32}$')
 
-axs[0, 2].plot(t, b3d1, 'tab:red', linewidth=3, label='$b_{3d_1}$')
 axs[0, 2].plot(t, R13, linewidth=3)
 axs[0, 2].set_ylabel('$R_{13}$', size=fontsize)
 axs[0, 2].legend(ncol=1, prop={'size': fontsize}, loc='best')
 # axs[0, 2].set_title('$R_{13}$')
 # axs[0, 2].set_yticks(np.arange(-0.10, 0.05, 0.05))
 
-axs[1, 2].plot(t, b3d2, 'tab:red', linewidth=3, label='$b_{3d_2}$')
 axs[1, 2].plot(t, R23, linewidth=3)
 axs[1, 2].set_ylabel('$R_{23}$', size=fontsize)
 axs[1, 2].legend(ncol=1, prop={'size': fontsize}, loc='best')
 # axs[1, 2].set_title('$R_{23}$')
 
-axs[2, 2].plot(t, b3d3, 'tab:red', linewidth=3, label='$b_{3d_3}$')
 axs[2, 2].plot(t, R33, linewidth=3)
 axs[2, 2].set_ylabel('$R_{33}$', size=fontsize)
 axs[2, 2].set_xlabel('Time [s]', size=fontsize)

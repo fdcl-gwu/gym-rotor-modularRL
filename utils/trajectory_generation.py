@@ -51,7 +51,6 @@ class TrajectoryGeneration:
         self.xd, self.vd, self.Wd = np.zeros(3), np.zeros(3), np.zeros(3)
         self.xd_norm, self.vd_norm, self.Wd_norm = np.zeros(3), np.zeros(3), np.zeros(3)
         self.b1d = np.array([1.,0.,0.]) # desired heading direction
-        self.b3d = np.array([0.,0.,1.])
 
         # Integral terms:
         self.use_integral = True
@@ -127,7 +126,7 @@ class TrajectoryGeneration:
         self.vd_norm = self.vd/self.v_lim
         self.Wd_norm = self.Wd/self.W_lim
 
-        return self.xd_norm, self.vd_norm, self.b1d, self.b3d, self.Wd_norm
+        return self.xd_norm, self.vd_norm, self.b1d, self.Wd_norm
 
 
     def get_desired_geometric_controller(self):
@@ -206,7 +205,6 @@ class TrajectoryGeneration:
     def set_desired_states_to_zero(self):
         self.xd, self.vd, self.Wd = np.zeros(3), np.zeros(3), np.zeros(3)
         self.b1d = np.array([1.,0.,0.]) # desired heading direction
-        self.b3d = np.array([0.,0.,1.])
 
     
     def set_desired_states_to_current(self):

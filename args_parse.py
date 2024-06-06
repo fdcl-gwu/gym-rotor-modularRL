@@ -21,7 +21,6 @@ def create_parser():
     parser.add_argument('--Cx', default=7.0, type=float, metavar='G', help='Position coeff. (default: )')
     parser.add_argument('--CIx', default=0.2, type=float, metavar='G', help='Position integral coeff. (default: )')
     parser.add_argument('--Cv', default=0.25, type=float, metavar='G', help='Velocity coeff. (default: )')
-    parser.add_argument('--Cb3', default=3.5, type=float, metavar='G', help='Attitude coeff. (default: )')
     parser.add_argument('--Cw12', default=0.25, type=float, metavar='G', help='Angular velocity coeff. (default: )')
     parser.add_argument('--alpha', default=0.1, type=float, metavar='G', help='Position integral terms. (default: )')
     # Agent2's reward:
