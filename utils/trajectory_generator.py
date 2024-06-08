@@ -7,7 +7,7 @@ import datetime
 import args_parse
 from gym_rotor.envs.quad_utils import *
 
-class TrajectoryGeneration:
+class TrajectoryGenerator:
     def __init__(self, env):
         # Hyperparameters:
         parser = args_parse.create_parser()
@@ -44,16 +44,13 @@ class TrajectoryGeneration:
         self.b1_init = np.zeros(3)
         self.theta_init = 0.0
 
-        self.x_norm, self.v_norm, self.W_norm = np.zeros(3), np.zeros(3), np.zeros(3)
         self.x, self.v, self.W = np.zeros(3), np.zeros(3), np.zeros(3)
         self.R = np.identity(3)
 
         self.xd, self.vd, self.Wd = np.zeros(3), np.zeros(3), np.zeros(3)
-        self.xd_norm, self.vd_norm, self.Wd_norm = np.zeros(3), np.zeros(3), np.zeros(3)
         self.b1d = np.array([1.,0.,0.]) # desired heading direction
 
         # Integral terms:
-        self.use_integral = True
         self.sat_sigma = 1.
         self.eIX = IntegralErrorVec3() # Position integral error
         self.eIR = IntegralError() # Attitude integral error
@@ -91,26 +88,21 @@ class TrajectoryGeneration:
         self.circle_W = 0.4
         
         # Eight-shaped curve:
-        """ Quadrotor control with exponential term:
-         ex 1, self.eight_A1 = 0.2, self.eight_A2 = 0.3, self.eight_w = 1.3, self.eight_R_xy = 0.7
-         ex 2, self.eight_A1 = 0.7, self.eight_A2 = 0.8, self.eight_w = 0.8, self.eight_R_xy = 0.5
-         ex 3, self.eight_A1 = 0.9, self.eight_A2 = 1., self.eight_w = 0.7, self.eight_R_xy = 0.3 """
-
-        self.num_of_eights = 2
+        self.num_of_eights = 5
         self.eight_A1 = 1.0
         self.eight_A2 = 0.6
-        self.eight_T = 10.0 # the period of the cycle [sec]
+        self.eight_T = 15. # the period of the cycle [sec]
         self.eight_w1 = 2*np.pi/self.eight_T # w = 2*pi*t/T 
         self.eight_w2 = self.eight_w1
+        self.eight_w_b1d = 0.05*np.pi # [rad/sec]
         self.eight_alt_d = -0.3
-        self.eight_R_z = 1.#0.1
+        self.eight_R_z = 0.1
         self.eight_R_xy = 1.#0.7
 
     
     def get_desired(self, state, mode):
-        # De-normalize state: [-1, 1] -> [max, min]
-        self.x_norm, self.v_norm, self.W_norm = state[0:3], state[3:6], state[15:18]
-        self.x, self.v, self.R, self.W = state_de_normalization(state, self.x_lim, self.v_lim, self.W_lim)
+        # Decomposing state vectors:
+        self.x, self.v, self.R, self.W = state_decomposition(state)
 
         # Generate desired traj: 
         if mode == self.mode:
@@ -119,14 +111,26 @@ class TrajectoryGeneration:
             self.is_mode_changed = True
             self.mode = mode
             self.mark_traj_start()
+
+        if mode == 7:
+            self.eight_T = 10.0 # the period of the cycle [sec]
+            self.eight_w_b1d = 0.1*np.pi # [rad/sec]
+            self.eight_w1 = 2*np.pi/self.eight_T # w = 2*pi*t/T 
+            self.eight_w2 = self.eight_w1
+        elif mode == 8:
+            self.eight_T = 7.0 # the period of the cycle [sec]
+            self.eight_w_b1d = 0.25*np.pi # [rad/sec]
+            self.eight_w1 = 2*np.pi/self.eight_T
+            self.eight_w2 = self.eight_w1
+        elif mode == 9:
+            self.eight_T = 5.0 # the period of the cycle [sec]
+            self.eight_w_b1d = 0.4*np.pi # [rad/sec]
+            self.eight_w1 = 2*np.pi/self.eight_T
+            self.eight_w2 = self.eight_w1
+        
         self.calculate_desired()
 
-        # Normalization goal state vectors: [max, min] -> [-1, 1]
-        self.xd_norm = self.xd/self.x_lim
-        self.vd_norm = self.vd/self.v_lim
-        self.Wd_norm = self.Wd/self.W_lim
-
-        return self.xd_norm, self.vd_norm, self.b1d, self.Wd_norm
+        return self.xd, self.vd, self.b1d, self.Wd
 
 
     def get_desired_geometric_controller(self):
@@ -136,12 +140,6 @@ class TrajectoryGeneration:
     
     
     def calculate_desired(self):
-        # Rotation on e3 axis
-        def R_e3(theta):
-            return np.array([[cos(theta), -sin(theta), 0.],
-                             [sin(theta),  cos(theta), 0.],
-                             [        0.,          0., 1.]])
-
         if self.manual_mode:
             self.manual()
             return
@@ -151,7 +149,7 @@ class TrajectoryGeneration:
                 self.set_desired_states_to_zero()
                 b1d_temp = self.get_current_b1()
                 theta_b1d = np.random.uniform(size=1,low=np.pi/6, high=np.pi/4) 
-                self.b1d = R_e3(theta_b1d) @ b1d_temp 
+                self.b1d = self.R_e3(theta_b1d) @ b1d_temp 
                 # print(theta_b1d, b1d_temp, self.b1d)
                 self.init_b1d = False
         elif self.mode == 2:  # take-off
@@ -162,7 +160,8 @@ class TrajectoryGeneration:
             self.stay()
         elif self.mode == 5:  # circle
             self.circle()
-        elif self.mode == 6:  #  eight-shaped curve
+        # elif self.mode == 6:  #  eight-shaped curve
+        elif self.mode >= 6:  # RODO: eight-shaped curve
             self.eight_shaped_curve()
 
 
@@ -183,7 +182,6 @@ class TrajectoryGeneration:
         # self.yaw = np.random.uniform(size=1,low=-np.pi, high=np.pi) 
         self.init_b1d = True
         self.update_initial_state()
-        self.reset_integral_terms()
 
 
     def mark_traj_end(self, switch_to_manual=False):
@@ -231,7 +229,6 @@ class TrajectoryGeneration:
         if not self.manual_mode_init:
             self.set_desired_states_to_current()
             self.update_initial_state()
-            self.reset_integral_terms()
 
             self.manual_mode_init = True
             self.x_offset = np.zeros(3)
@@ -249,7 +246,6 @@ class TrajectoryGeneration:
     def takeoff(self):
         if not self.trajectory_started:
             self.set_desired_states_to_zero()
-            self.reset_integral_terms()
 
             # Take-off starts from the current horizontal position:
             self.xd[0] = self.x[0]
@@ -291,7 +287,6 @@ class TrajectoryGeneration:
     def land(self):
         if not self.trajectory_started:
             self.set_desired_states_to_current()
-            self.reset_integral_terms()
             self.t_traj = (self.landing_motor_cutoff_height - self.x[2]) / self.landing_velocity
 
             # Set the take-off yaw to the current yaw:
@@ -330,7 +325,6 @@ class TrajectoryGeneration:
     def circle(self):
         if not self.trajectory_started:
             self.set_desired_states_to_current()
-            self.reset_integral_terms()
             self.trajectory_started = True
 
             self.circle_center = np.copy(self.x)
@@ -369,7 +363,7 @@ class TrajectoryGeneration:
             self.xd_4dot[1] =  circle_radius * circle_W4 * np.sin(th)
 
             # yaw-axis:
-            w_b1d = 0.01*np.pi
+            w_b1d = 0.01*np.pi 
             th_b1d = w_b1d * t
             self.b1d = np.array([np.cos(th_b1d), np.sin(th_b1d), 0])
             self.b1d_dot = np.array([- w_b1d * np.sin(th_b1d), \
@@ -393,7 +387,6 @@ class TrajectoryGeneration:
         """
         if not self.trajectory_started:
             self.set_desired_states_to_current()
-            self.reset_integral_terms()
             self.trajectory_started = True
 
             self.eight_shaped_center = np.copy(self.x)
@@ -449,16 +442,16 @@ class TrajectoryGeneration:
                                                 - 4.*self.eight_R_xy_3 * self.eight_w1 * np.exp(-self.eight_R_xy * self.t) * sin(self.t*self.eight_w1))
 
             # z Commads
-            self.xd[2] = self.eight_shaped_center[2]
-            self.vd[2] = 0.
-            # self.xd[2] = self.eight_alt_d * (1. - np.exp(-self.eight_R_z*self.t)) + self.eight_shaped_center[2]
-            # self.vd[2] = self.eight_alt_d * -self.eight_R_z * -np.exp(-self.eight_R_z*self.t)
-            # self.xd_2dot[2] = self.eight_alt_d *  self.eight_R_z**2 * -np.exp(-self.eight_R_z*self.t)
-            # self.xd_3dot[2] = self.eight_alt_d * -self.eight_R_z**3 * -np.exp(-self.eight_R_z*self.t)
-            # self.xd_4dot[2] = self.eight_alt_d *  self.eight_R_z**4 * -np.exp(-self.eight_R_z*self.t)
+            # self.xd[2] = self.eight_shaped_center[2]
+            # self.vd[2] = 0.
+            self.xd[2] = self.eight_alt_d * (1. - np.exp(-self.eight_R_z*self.t)) + self.eight_shaped_center[2]
+            self.vd[2] = self.eight_alt_d * -self.eight_R_z * -np.exp(-self.eight_R_z*self.t)
+            self.xd_2dot[2] = self.eight_alt_d *  self.eight_R_z**2 * -np.exp(-self.eight_R_z*self.t)
+            self.xd_3dot[2] = self.eight_alt_d * -self.eight_R_z**3 * -np.exp(-self.eight_R_z*self.t)
+            self.xd_4dot[2] = self.eight_alt_d *  self.eight_R_z**4 * -np.exp(-self.eight_R_z*self.t)
 
             # yaw-axis:
-            w_b1d = 0.05*np.pi
+            w_b1d = self.eight_w_b1d
             th_b1d = w_b1d * self.t
             self.b1d = np.array([np.cos(th_b1d), np.sin(th_b1d), 0])
             self.b1d_dot = np.array([-w_b1d * np.sin(th_b1d), w_b1d * np.cos(th_b1d), 0.0])
@@ -470,50 +463,8 @@ class TrajectoryGeneration:
         else:
             self.mark_traj_end(True)
             
-
-    def reset_integral_terms(self):
-        # Reset integral terms:
-        self.eIx  = np.zeros(3)
-        self.eIb1 = 0.
-        self.eIX.set_zero() # Set all integrals to zero
-        self.eIR.set_zero()
-    
-
-    def get_error_state(self, framework):
-        # Normalized error obs:
-        ex_norm = self.x_norm - self.xd_norm # position error
-        ev_norm = self.v_norm - self.vd_norm # velocity error
-        eW_norm = self.W_norm - self.Wd_norm # ang vel error
-
-        # Compute yaw angle error: 
-        b1 = self.R @ np.array([1.,0.,0.])
-        b2 = self.R @ np.array([0.,1.,0.])
-        b3 = self.R @ np.array([0.,0.,1.])
-        b1c = -(hat(b3) @ hat(b3)) @ self.b1d # desired b1
-        eb1 = norm_ang_btw_two_vectors(b1c, b1) # b1 error, [-1, 1) # -np.dot(b1c,b2)/np.pi
-        # wc = hat(b1c)@b1c_dot
-        # wc3 = b3@wc
-        # ewy = eW_norm[2] - self.wc3
-        
-        # Update integral terms: 
-        self.eIX.integrate(-self.alpha*self.eIX.error + ex_norm*self.x_lim, self.dt) 
-        self.eIx = clip(self.eIX.error/self.eIx_lim, -self.sat_sigma, self.sat_sigma)
-        self.eIR.integrate(-self.beta*self.eIR.error + eb1*np.pi, self.dt) # b1 integral error
-        self.eIb1 = clip(self.eIR.error/self.eIb1_lim, -self.sat_sigma, self.sat_sigma)
-
-        if framework in ("CTDE","DTDE"):
-            # Agent1's obs:
-            ew12 = eW_norm[0]*b1 + eW_norm[1]*b2
-            obs_1 = np.concatenate((ex_norm, ev_norm, b3, ew12, self.eIx), axis=None)
-            # Agent2's obs:
-            eW3_norm = eW_norm[2]
-            obs_2 = np.concatenate((b1, eW3_norm, eb1, self.eIb1), axis=None)
-            error_obs_n = [obs_1, obs_2]
-        elif framework == "SARL":
-            # Single-agent's obs:
-            R_vec = self.R.reshape(9, 1, order='F').flatten()
-            obs = np.concatenate((ex_norm, ev_norm, R_vec, eW_norm, self.eIx, eb1, self.eIb1), axis=None)
-            error_obs_n = [obs]
-        error_state = (ex_norm, ev_norm, eW_norm, self.eIx, eb1, self.eIb1)
-        
-        return error_obs_n, error_state
+    # Rotation on e3 axis
+    def R_e3(self, theta):
+        return np.array([[cos(theta), -sin(theta), 0.],
+                         [sin(theta),  cos(theta), 0.],
+                         [        0.,          0., 1.]])

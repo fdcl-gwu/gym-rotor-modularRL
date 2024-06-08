@@ -37,14 +37,14 @@ cmd = load_cmd[start_index-2: end_index-2]
 t = np.arange(end_index - start_index)*env.dt # sim time [sec]
 
 # States:
-x1, x2, x3 = obs[:, 0]*env.x_lim, obs[:, 1]*env.x_lim, obs[:, 2]*env.x_lim
-v1, v2, v3 = obs[:, 3]*env.v_lim, obs[:, 4]*env.v_lim, obs[:, 5]*env.v_lim
+x1, x2, x3 = obs[:, 0], obs[:, 1], obs[:, 2]
+v1, v2, v3 = obs[:, 3], obs[:, 4], obs[:, 5]
 R11, R21, R31 = obs[:, 6],  obs[:, 7],  obs[:, 8] 
 R12, R22, R32 = obs[:, 9],  obs[:, 10], obs[:, 11]
 R13, R23, R33 = obs[:, 12], obs[:, 13], obs[:, 14]  
-W1, W2, W3 = obs[:, 15]*env.W_lim, obs[:, 16]*env.W_lim, obs[:, 17]*env.W_lim
-eIx1, eIx2, eIx3 = obs[:, 18]*env.eIx_lim, obs[:, 19]*env.eIx_lim, obs[:, 20]*env.eIx_lim
-eb1, eIb1 = obs[:, 21]*np.pi, obs[:, 22]*env.eIb1_lim # eb1 =b1 error, [-pi, pi)
+W1, W2, W3 = obs[:, 15], obs[:, 16], obs[:, 17]
+eIx1, eIx2, eIx3 = obs[:, 18], obs[:, 19], obs[:, 20]
+eb1, eIb1 = obs[:, 21], obs[:, 22] # eb1 = b1 error, [-pi, pi)
 
 # Actions:
 fM = np.zeros((4, act.shape[0])) # Force-moment vector
@@ -71,10 +71,10 @@ elif args.framework == "SARL":
     f1, f2, f3, f4 = forces[0], forces[1], forces[2], forces[3]
 
 # Commands:
-xd1, xd2, xd3 = cmd[:, 0]*env.x_lim, cmd[:, 1]*env.x_lim, cmd[:, 2]*env.x_lim
-vd1, vd2, vd3 = cmd[:, 3]*env.v_lim, cmd[:, 4]*env.v_lim, cmd[:, 5]*env.v_lim
+xd1, xd2, xd3 = cmd[:, 0], cmd[:, 1], cmd[:, 2]
+vd1, vd2, vd3 = cmd[:, 3], cmd[:, 4], cmd[:, 5]
 b1d1, b1d2, b1d3 = cmd[:, 6], cmd[:, 7], cmd[:, 8]
-Wd1, Wd2, Wd3 = cmd[:, 9]*env.W_lim, cmd[:, 10]*env.W_lim, cmd[:, 11]*env.W_lim
+Wd1, Wd2, Wd3 = cmd[:, 9], cmd[:, 10], cmd[:, 11]
 Rd = np.eye(3) # arbitrary desired attitude
 
 #######################################################################
