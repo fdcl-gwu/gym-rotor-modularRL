@@ -148,7 +148,7 @@ class TrajectoryGenerator:
             if self.init_b1d == True:
                 self.set_desired_states_to_zero()
                 b1d_temp = self.get_current_b1()
-                theta_b1d = np.random.uniform(size=1,low=np.pi/6, high=np.pi/4) 
+                theta_b1d = np.random.uniform(size=1,low=np.pi/6, high=np.pi/2) 
                 self.b1d = self.R_e3(theta_b1d) @ b1d_temp 
                 # print(theta_b1d, b1d_temp, self.b1d)
                 self.init_b1d = False
@@ -407,6 +407,8 @@ class TrajectoryGenerator:
         self.update_current_time()
 
         if self.t < self.t_traj:
+            # Smooth xy trajectory:
+            """
             # x1 commands
             self.xd[0] = self.eight_A2*(-sin(self.t*2.*self.eight_w2) * (np.exp(-self.eight_R_xy * self.t) - 1.)) + self.eight_shaped_center[0]
             self.vd[0] = self.eight_A2*(self.eight_R_xy * np.exp(-self.eight_R_xy * self.t) * sin(self.t*2.*self.eight_w2) \
@@ -440,15 +442,23 @@ class TrajectoryGenerator:
                                                 - self.eight_R_xy_4 * np.exp(-self.eight_R_xy * self.t) * (cos(self.t * self.eight_w1) - 1.) \
                                                 + 4.*self.eight_R_xy * self.eight_w1_3 * np.exp(-self.eight_R_xy * self.t) * sin(self.t*self.eight_w1) \
                                                 - 4.*self.eight_R_xy_3 * self.eight_w1 * np.exp(-self.eight_R_xy * self.t) * sin(self.t*self.eight_w1))
-
+            """
+            # x1 commands
+            self.xd[0] = self.eight_A2 * sin(self.t * 2. * self.eight_w2) + self.eight_shaped_center[0]
+            self.vd[0] = self.eight_A2 * (2. * self.eight_w2 * cos(self.t * 2. * self.eight_w2))
+ 
+            # x2 commands
+            self.xd[1] = self.eight_A1 * (cos(self.t * self.eight_w1) - 1.) + self.eight_shaped_center[1]
+            self.vd[1] = self.eight_A1 * (self.eight_w1 * -sin(self.t * self.eight_w1))
+ 
             # z Commads
-            # self.xd[2] = self.eight_shaped_center[2]
-            # self.vd[2] = 0.
-            self.xd[2] = self.eight_alt_d * (1. - np.exp(-self.eight_R_z*self.t)) + self.eight_shaped_center[2]
-            self.vd[2] = self.eight_alt_d * -self.eight_R_z * -np.exp(-self.eight_R_z*self.t)
-            self.xd_2dot[2] = self.eight_alt_d *  self.eight_R_z**2 * -np.exp(-self.eight_R_z*self.t)
-            self.xd_3dot[2] = self.eight_alt_d * -self.eight_R_z**3 * -np.exp(-self.eight_R_z*self.t)
-            self.xd_4dot[2] = self.eight_alt_d *  self.eight_R_z**4 * -np.exp(-self.eight_R_z*self.t)
+            self.xd[2] = self.eight_shaped_center[2]
+            self.vd[2] = 0.
+            # self.xd[2] = self.eight_alt_d * (1. - np.exp(-self.eight_R_z*self.t)) + self.eight_shaped_center[2]
+            # self.vd[2] = self.eight_alt_d * -self.eight_R_z * -np.exp(-self.eight_R_z*self.t)
+            # self.xd_2dot[2] = self.eight_alt_d *  self.eight_R_z**2 * -np.exp(-self.eight_R_z*self.t)
+            # self.xd_3dot[2] = self.eight_alt_d * -self.eight_R_z**3 * -np.exp(-self.eight_R_z*self.t)
+            # self.xd_4dot[2] = self.eight_alt_d *  self.eight_R_z**4 * -np.exp(-self.eight_R_z*self.t)
 
             # yaw-axis:
             w_b1d = self.eight_w_b1d

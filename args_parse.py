@@ -14,7 +14,7 @@ def create_parser():
     parser.add_argument('--max_steps', default=2000, type=int, help='Maximum number of steps in each episode (default: 2000)')
     parser.add_argument('--max_timesteps', default=int(3e6), type=int, help='Number of total timesteps (default: 7e6)')
     parser.add_argument("--num_eval", type=float, default=5, help="Number of episodes to evaluate our trained model")
-    parser.add_argument("--eval_freq", default=3e5, type=int, help='How often (time steps) evaluate our trained model (default: 1e4)')       
+    parser.add_argument("--eval_freq", default=5e3, type=int, help='How often (time steps) evaluate our trained model (default: 1e4)')       
     parser.add_argument('--eval_max_steps', default=15, type=int, help='[sec] Maximum number of steps in each episode for evaluation (default: 5)')
     # Coefficients in reward function:
     # Agent1's reward:
@@ -24,13 +24,13 @@ def create_parser():
     parser.add_argument('--Cw12', default=0.25, type=float, metavar='G', help='Angular velocity coeff. (default: )')
     parser.add_argument('--alpha', default=0.1, type=float, metavar='G', help='Position integral terms. (default: )')
     # Agent2's reward:
-    parser.add_argument('--Cb1', default=4.0, type=float, metavar='G', help='Heading coeff. (default: )')
-    parser.add_argument('--CIb1', default=0.1, type=float, metavar='G', help='Heading integral coeff. (default: )')
-    parser.add_argument('--CW3', default=0.2, type=float, metavar='G', help='Angular velocity coeff. (default: )')
+    parser.add_argument('--Cb1', default=7.0, type=float, metavar='G', help='Heading coeff. (default: )')
+    parser.add_argument('--CIb1', default=0.2, type=float, metavar='G', help='Heading integral coeff. (default: )')
+    parser.add_argument('--CW3', default=0.25, type=float, metavar='G', help='Angular velocity coeff. (default: )')
     parser.add_argument('--beta', default=0.1, type=float, metavar='G', help='Heading integral terms. (default: )')
     # Domain randomization: 
     parser.add_argument("--use_UDM", default=True, type=bool, help="Uniform domain randomization for sim-to-real")
-    parser.add_argument("--UDM_percentage", default=10, type=float, help="± randomness 0 ~ 100[%]")
+    parser.add_argument("--UDM_percentage", default=20, type=float, help="± randomness 0 ~ 100[%]")
 
     # args of agents:
     parser.add_argument("--start_timesteps", default=int(3e5), type=int, help='Number of steps for uniform-random action selection (default: int(5e5))')

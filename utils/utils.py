@@ -24,11 +24,10 @@ def get_error_state(norm_obs_n, x_lim, v_lim, eIx_lim, eIb1_lim, args):
     return ex, eIx, ev, eb1, eIb1
 
 
-def benchmark_reward_func(ex, ev, eb1, args):    
-    reward_eX = -args.Cx * (norm(ex))
-    reward_eV = -args.Cv * (norm(ev))
-    reward_eb1 = -args.Cb1 * abs(eb1)
+def benchmark_reward_func(ex, ev, eb1):    
+    reward_eX = -norm(ex)
+    reward_eV = -norm(ev)
+    reward_eb1 = -abs(eb1)
     rwd = reward_eX + reward_eV + reward_eb1
 
-    rwd_min = -np.ceil(args.Cx+args.Cv+args.Cb1)
-    return interp(rwd, [rwd_min, 0.], [0., 1.]) # linear interpolation [0,1]
+    return interp(rwd, [-3., 0.], [0., 1.]) # linear interpolation [0,1]

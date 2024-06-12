@@ -81,7 +81,7 @@ class Learner:
         
         # Load trained models for evaluation:
         if self.args.test_model:
-            if self.framework == "CTDE": # 2180_000 1240_000
+            if self.framework == "CTDE":
                 total_steps, agent_id = 380_000, 0  # edit 'total_steps' accordingly
                 # self.agent_n[agent_id].load(self.framework, total_steps, agent_id, self.seed)  # test best models
                 self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)  # test solved models
@@ -187,8 +187,6 @@ class Learner:
                     self.mode = 8
                 elif self.total_timesteps >= self.curriculum_interval[4]:
                     self.mode = 9
-                if self.total_timesteps in self.curriculum_interval[1:]:
-                    max_total_reward = [0.8*self.eval_max_steps, 0.8*self.eval_max_steps]  # reset max_total_reward
                 self.trajectory_generator.mark_traj_start() # reset trajectories
 
                 # Print training updates:
@@ -233,6 +231,10 @@ class Learner:
                     if eval_reward[agent_id] > max_total_reward[agent_id]:
                         max_total_reward[agent_id] = eval_reward[agent_id]
                         self.agent_n[agent_id].save_model(self.framework, self.total_timesteps, agent_id, self.seed)
+            
+            # Reset max_total_reward when curriculum changed:
+            if self.total_timesteps in self.curriculum_interval:
+                max_total_reward = [0.8*self.eval_max_steps, 0.8*self.eval_max_steps]  # reset max_total_reward
 
         # Close environment:
         self.env.close()
@@ -316,7 +318,7 @@ class Learner:
 
                 # Cumulative rewards:
                 episode_reward = [float('{:.4f}'.format(episode_reward[agent_id]+r)) for agent_id, r in zip(range(self.args.N), r_n)]
-                episode_benchmark_reward += benchmark_reward_func(ex, ev, eb1, args)
+                episode_benchmark_reward += benchmark_reward_func(ex, ev, eb1)
 
                 # Save data:
                 if self.args.save_log:
@@ -354,7 +356,7 @@ class Learner:
         eval_reward = [float('{:.4f}'.format(eval_r/self.args.num_eval)) for eval_r in eval_reward]
         benchmark_reward = float('{:.4f}'.format(benchmark_reward/self.args.num_eval))
         print("--------------------------------------------------------------------------------------------------------------------------------")
-        print(f"total_timesteps: {self.total_timesteps} \t eval_reward: {eval_reward} \t benchmark_reward: {benchmark_reward} \t explor_noise_std: {self.explor_noise_std:.3f}")
+        print(f"total_timesteps: {self.total_timesteps} \t eval_reward: {eval_reward} \t benchmark_reward: {benchmark_reward} \t explor_noise_std: {self.explor_noise_std:.4f}")
         print("--------------------------------------------------------------------------------------------------------------------------------")
         sys.exit("The trained agent has been test!") if self.args.test_model == True else None
 

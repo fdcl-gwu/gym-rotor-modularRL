@@ -42,22 +42,22 @@ class TD3(object):
             self.actor = Equiv_Actor_SARL(args, agent_id).to(device)
             self.actor_target = copy.deepcopy(self.actor)
             self.actor_optimizer = torch.optim.AdamW(self.actor.parameters(), lr=self.lr_a)
-            self.actor_scheduler = CosineAnnealingWarmRestarts(self.actor_optimizer, T_0=3500000, eta_min=1e-6)
+            self.actor_scheduler = CosineAnnealingWarmRestarts(self.actor_optimizer, T_0=1_000_000, eta_min=1e-6)
 
             self.critic = Equiv_Critic_SARL(args, agent_id).to(device)
             self.critic_target = copy.deepcopy(self.critic)
             self.critic_optimizer = torch.optim.AdamW(self.critic.parameters(), lr=self.lr_c)
-            self.critic_scheduler = CosineAnnealingWarmRestarts(self.critic_optimizer, T_0=3500000, eta_min=1e-6)
+            self.critic_scheduler = CosineAnnealingWarmRestarts(self.critic_optimizer, T_0=1_000_000, eta_min=1e-6)
         else:
             self.actor = Actor(args, agent_id).to(device)
             self.actor_target = copy.deepcopy(self.actor)
             self.actor_optimizer = torch.optim.AdamW(self.actor.parameters(), lr=self.lr_a)
-            self.actor_scheduler = CosineAnnealingWarmRestarts(self.actor_optimizer, T_0=3500000, eta_min=1e-6)
+            self.actor_scheduler = CosineAnnealingWarmRestarts(self.actor_optimizer, T_0=1_000_000, eta_min=1e-6)
 
             self.critic = Critic_TD3(args, agent_id).to(device)
             self.critic_target = copy.deepcopy(self.critic)
             self.critic_optimizer = torch.optim.AdamW(self.critic.parameters(), lr=self.lr_c)
-            self.critic_scheduler = CosineAnnealingWarmRestarts(self.critic_optimizer, T_0=3500000, eta_min=1e-6)
+            self.critic_scheduler = CosineAnnealingWarmRestarts(self.critic_optimizer, T_0=1_000_000, eta_min=1e-6)
 
     # Each agent selects actions based on its own local observations(add noise for exploration)
     def choose_action(self, obs, explor_noise_std):
