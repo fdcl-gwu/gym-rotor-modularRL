@@ -24,7 +24,8 @@ class CoupledWrapper(QuadEnv):
         self.eIb1_lim = 3.0 
 
 
-    def reset(self, env_type='train',
+    def reset(self, 
+        env_type='train',
         seed: Optional[int] = None,
         options: Optional[dict] = None,
     ):
@@ -38,7 +39,7 @@ class CoupledWrapper(QuadEnv):
         self.eb1 = 0.
         self.eIb1 = 0.
         
-        return self.state
+        return np.array(self.state, dtype=np.float32)
 
 
     def action_wrapper(self, action):

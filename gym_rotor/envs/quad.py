@@ -108,11 +108,13 @@ class QuadEnv(gym.Env):
         self.low = np.concatenate([-self.x_lim * np.ones(3),  
                                    -self.v_lim * np.ones(3),
                                    -np.ones(9),
-                                   -self.W_lim * np.ones(3)])
+                                   -self.W_lim * np.ones(3)],
+                                   dtype=np.float32) #np.float64
         self.high = np.concatenate([self.x_lim * np.ones(3),  
                                     self.v_lim * np.ones(3),
                                     np.ones(9),
-                                    self.W_lim * np.ones(3)])
+                                    self.W_lim * np.ones(3)],
+                                    dtype=np.float32) #np.float64
 
         # Observation space:
         self.observation_space = spaces.Box(
@@ -132,12 +134,14 @@ class QuadEnv(gym.Env):
         # Init:
         self.state = None
         self.viewer = None
-        self.render_index = 1 
+        self.screen_width = 1080
+        self.screen_height = 480
+        self.screen_capture = 1 
 
 
-    def step(self, action):
+    def step(self, normalized_action):
         # Action:
-        action = self.action_wrapper(action)
+        action = self.action_wrapper(normalized_action)
 
         # State vec: (x[0:3]; v[3:6]; R_vec[6:15]; W[15:18])
         state = copy.deepcopy(self.state)
@@ -164,7 +168,8 @@ class QuadEnv(gym.Env):
         return obs, reward, done, False, {}
 
 
-    def reset(self, env_type='train',
+    def reset(self, 
+        env_type='train',
         seed: Optional[int] = None,
         options: Optional[dict] = None,
     ):
@@ -218,13 +223,13 @@ class QuadEnv(gym.Env):
         self.t = 0
         self.cmd_count = 0
 
-        return self.state
+        return np.array(self.state, dtype=np.float32)
 
 
-    def action_wrapper(self, action):
-        # Linear scale, [-1, 1] -> [min_act, max_act] 
+    def action_wrapper(self, normalized_action):
+        # Linear scale, normalized_action in [-1, 1] -> [min_act, max_act] 
         action = (
-            self.scale_act * action + self.avrg_act
+            self.scale_act * normalized_action + self.avrg_act
             ).clip(self.min_force, self.max_force)
 
         # Saturated thrust of each motor:
@@ -449,15 +454,15 @@ class QuadEnv(gym.Env):
         if framework in ("CTDE","DTDE"):
             # Agent1's obs:
             ew12 = eW_norm[0]*b1 + eW_norm[1]*b2
-            obs_1 = np.concatenate((ex_norm, self.eIx, ev_norm, b3, ew12), axis=None)
+            obs_1 = np.concatenate((ex_norm, self.eIx, ev_norm, b3, ew12), axis=None, dtype=np.float32)
             # Agent2's obs:
             eW3_norm = eW_norm[2]
-            obs_2 = np.concatenate((b1, eb1, self.eIb1, eW3_norm), axis=None)
+            obs_2 = np.concatenate((b1, eb1, self.eIb1, eW3_norm), axis=None, dtype=np.float32)
             error_obs_n = [obs_1, obs_2]
         elif framework == "SARL":
             # Single-agent's obs:
             R_vec = R.reshape(9, 1, order='F').flatten()
-            obs = np.concatenate((ex_norm, self.eIx, ev_norm, R_vec, eb1, self.eIb1, eW_norm), axis=None)
+            obs = np.concatenate((ex_norm, self.eIx, ev_norm, R_vec, eb1, self.eIb1, eW_norm), axis=None, dtype=np.float32)
             error_obs_n = [obs]
         
         return error_obs_n
@@ -487,7 +492,7 @@ class QuadEnv(gym.Env):
         # Init:
         if self.viewer is None:
             # Canvas.
-            self.viewer = canvas(title='Quadrotor with RL', width=1080, height=480, \
+            self.viewer = canvas(title='Quadrotor with RL', width=self.screen_width, height=self.screen_height, \
                                  center=vector(0, 0, cmd_pos[2]), background=color.white, \
                                  forward=vector(0.5, 0.3, 0.7), up=vector(0, 0, -1), range=2.0) # forward = view point
             
@@ -741,9 +746,9 @@ class QuadEnv(gym.Env):
 
         # Screen capture:
         """
-        if (self.render_index % 5) == 0:
-            self.viewer.capture('capture'+str(self.render_index))
-        self.render_index += 1        
+        if (self.screen_capture % 5) == 0:
+            self.viewer.capture('capture'+str(self.screen_capture))
+        self.screen_capture += 1        
         """
 
         rate(60) # FPS

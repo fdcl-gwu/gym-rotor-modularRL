@@ -8,10 +8,10 @@ from algos.networks.mlp import Actor, Critic_MATD3
 
 if torch.cuda.is_available():
     device = torch.device("cuda")
-    print("CUDA found.")
+    # print("CUDA found.")
 elif torch.backends.mps.is_available():
     device = torch.device("mps")
-    print("MPS found.")
+    # print("MPS found.")
 else:
     device = torch.device("cpu")
 
