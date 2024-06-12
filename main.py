@@ -150,10 +150,10 @@ class Learner:
             # Episode termination:
             if episode_timesteps == self.args.max_steps:  # episode terminated!
                 done_episode = True
-                done_n[0] = True if (abs(ex) <= 0.05).all() else False  # problem is solved! when ex < 0.05m
+                done_n[0] = True if (abs(ex) <= 0.05).all() and r_n[0] != -1. else False  # problem is solved! when ex < 0.05m
                 if self.framework in ("CTDE","DTDE"):
-                    done_n[1] = True if abs(eb1) <= 0.02 else False  # problem is solved! when eb1 < 0.02rad
-        
+                    done_n[1] = True if abs(eb1) <= 0.02 and r_n[1] != -1. else False  # problem is solved! when eb1 < 0.02rad
+
             # Store a set of transitions in replay buffer:
             self.replay_buffer.store_transition(obs_n, act_n, r_n, obs_next_n, done_n)
             episode_reward = [float('{:.4f}'.format(episode_reward[agent_id]+r)) for agent_id, r in zip(range(self.args.N), r_n)]
@@ -165,7 +165,7 @@ class Learner:
                 for agent_id in range(self.args.N):
                     self.agent_n[agent_id].train(self.replay_buffer, self.agent_n, self.env)
 
-            # If done_episode:
+            # When done_episode:
             if any(done_n) == True or done_episode == True:
                 # Reset trajectory generation modes for curriculum learning:
                 """ Mode List -----------------------------------------------
@@ -329,10 +329,10 @@ class Learner:
                 # Episode termination:
                 if any(done_n) or episode_timesteps == self.eval_max_steps:
                     if self.framework in ("CTDE","DTDE"):
-                        success[0] = True if (abs(ex) <= 0.05).all() else False
-                        success[1] = True if abs(eb1) <= 0.02 else False
+                        success[0] = True if (abs(ex) >= 0.05).all() and r_n[0] != -1. else False
+                        success[1] = True if abs(eb1) <= 0.02 and r_n[1] != -1. else False
                     elif self.framework == "SARL":
-                        success[0] = True if (abs(ex) <= 0.05).all() else False
+                        success[0] = True if (abs(ex) <= 0.05).all() and r_n[0] != -1. else False
                     print(f"eval_iter: {num_eval+1}, time_stpes: {episode_timesteps}, episode_reward: {episode_reward}, episode_benchmark_reward: {episode_benchmark_reward:.3f}, ex: {ex}, eb1: {eb1:.3f}")
                     success_count.append(success)
                     break
