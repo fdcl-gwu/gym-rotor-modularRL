@@ -138,6 +138,6 @@ dmypy.json
 
 # gym-rotor
 *.txt
-#models/
-#results/
+models/
+results/
 #*.dat

@@ -33,11 +33,10 @@ class CoupledWrapper(QuadEnv):
         QuadEnv.reset(self, env_type)
 
         # Reset integral terms:
-        self.eIX.set_zero() # Set all integrals to zero
-        self.eIx = np.zeros(3)
-        self.eIR.set_zero()
-        self.eb1 = 0.
-        self.eIb1 = 0.
+        self.eIx.set_zero() # Set all integrals to zero
+        self.eIx_norm = np.zeros(3)
+        self.eIb1.set_zero()
+        self.eIb1_norm = 0.
         
         return np.array(self.state, dtype=np.float32)
 
@@ -71,7 +70,7 @@ class CoupledWrapper(QuadEnv):
 
         # Monolithic agent's obs:
         """
-        norm_obs = (ex_norm, self.eIx, ev_norm, R_vec, eb1, self.eIb1, eW_norm)
+        norm_obs = (ex_norm, eIx_norm, ev_norm, R_vec, eb1_norm, eIb1_norm, eW_norm, eb1_dot)
         """
         obs = self.get_norm_error_state(self.framework)
 
@@ -80,7 +79,7 @@ class CoupledWrapper(QuadEnv):
 
     def reward_wrapper(self, obs):
         # Single-agent's obs:
-        ex_norm, eIx_norm, ev_norm, _, eb1_norm, eIb1_norm, eW_norm = obs_decomposition(obs[0]) 
+        ex_norm, eIx_norm, ev_norm, _, eb1_norm, eIb1_norm, eW_norm, eb1_dot = obs_decomposition(obs[0]) 
 
         # Single-agent's reward:
         reward_eX   = -self.Cx*(norm(ex_norm, 2)**2) 
@@ -89,23 +88,24 @@ class CoupledWrapper(QuadEnv):
         reward_eb1  = -self.Cb1*abs(eb1_norm)
         reward_eIb1 = -self.CIb1*abs(eIb1_norm)
         reward_eW   = -self.CW*(norm(eW_norm, 2)**2)
+        reward_eb1_dot = -self.Cb1_dot*(abs(eb1_dot))
         
-        rwd = reward_eX + reward_eIX + reward_eV + reward_eb1 + reward_eIb1 + reward_eW
+        rwd = reward_eX + reward_eIX + reward_eV + reward_eb1 + reward_eIb1 + reward_eW + reward_eb1_dot
         
         return [rwd]
 
 
     def done_wrapper(self, obs):
         # Single-agent's obs:
-        ex_norm, eIx_norm, ev_norm, _, eb1_norm, eIb1_norm, eW_norm = obs_decomposition(obs[0]) 
+        ex_norm, eIx_norm, ev_norm, _, eb1_norm, eIb1_norm, eW_norm, eb1_dot = obs_decomposition(obs[0]) 
 
         # Single-agent's terminal states:
         done = False
         done = bool(
                (abs(ex_norm) >= 1.0).any() 
             or (abs(ev_norm) >= 1.0).any() 
-            or (abs(eb1_norm) >= 1.0)
             or (abs(eW_norm) >= 1.0).any() 
+            # or (abs(eb1_norm) >= 1.0)
             # or (abs(eIx_norm) >= 1.0).any()
             # or (abs(eIb1_norm) >= 1.0)
         )

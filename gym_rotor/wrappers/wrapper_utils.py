@@ -8,8 +8,9 @@ def obs_decomposition(obs):
     eb1_norm = obs[18]
     eIb1_norm = obs[19]
     eW_norm = obs[20:23]
+    eb1_dot = obs[23]
 
-    return ex_norm, eIx_norm, ev_norm, R_vec, eb1_norm, eIb1_norm, eW_norm
+    return ex_norm, eIx_norm, ev_norm, R_vec, eb1_norm, eIb1_norm, eW_norm, eb1_dot
 
 def obs1_decomposition(obs):
     ex_norm = obs[0:3]
@@ -26,5 +27,6 @@ def obs2_decomposition(obs):
     eb1_norm = obs[3]
     eIb1_norm = obs[4]
     eW3_norm = obs[5]
+    eb1_dot = obs[6]
 
-    return b1, eb1_norm, eIb1_norm, eW3_norm
+    return b1, eb1_norm, eIb1_norm, eW3_norm, eb1_dot

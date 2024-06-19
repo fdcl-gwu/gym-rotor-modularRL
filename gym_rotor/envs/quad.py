@@ -78,27 +78,28 @@ class QuadEnv(gym.Env):
         self.Cb1 = args.Cb1
         self.CIb1 = args.CIb1
         self.CW = args.Cw12
-        self.reward_min = -np.ceil(self.Cx+self.CIx+self.Cv+self.Cb1+self.CIb1+self.CW)
+        self.Cb1_dot = args.Cb1_dot
+        self.reward_min = -np.ceil(self.Cx+self.CIx+self.Cv+self.Cb1+self.CIb1+self.CW+self.Cb1_dot)
         if self.framework in ("CTDE","DTDE"):
             # Agent1's reward:
             self.Cw12 = args.Cw12
             self.reward_min_1 = -np.ceil(self.Cx+self.CIx+self.Cv+self.Cw12)
             # Agent2's reward:
             self.CW3 = args.CW3
-            self.reward_min_2 = -np.ceil(self.Cb1+self.CW3+self.CIb1)
+            self.reward_min_2 = -np.ceil(self.Cb1+self.CW3+self.CIb1+self.Cb1_dot)
         
         # Integral terms:
         self.sat_sigma = 1.
-        self.eIX = IntegralErrorVec3() # Position integral error
-        self.eIR = IntegralError() # Attitude integral error
-        self.eIX.set_zero() # Set all integrals to zero
-        self.eIR.set_zero()
+        self.eIx = IntegralErrorVec3() # Position integral error
+        self.eIb1 = IntegralError() # Yawing integral error
+        self.eIx.set_zero() # Set all integrals to zero
+        self.eIb1.set_zero()
 
         # Commands:
         self.xd  = np.array([0.,0.,0.]) # desired tracking position command, [m] 
         self.vd  = np.array([0.,0.,0.]) # [m/s]
         self.b1d = np.array([1.,0.,0.]) # desired heading direction        
-        self.Wd  = np.eye(3) # desired angular velocity [rad/s]
+        self.Wd  = np.array([0.,0.,0.]) # desired angular velocity [rad/s]
 
         # Limits of states:
         self.x_lim = 1.0 # [m]
@@ -197,10 +198,6 @@ class QuadEnv(gym.Env):
         roll_pitch = uniform(size=2,low=-self.init_R,high=self.init_R)
         euler = np.concatenate((roll_pitch, self.yaw), axis=None)
         R = Rotation.from_euler('xyz', euler, degrees=False).as_matrix()
-        # Compute current b1:
-        b1 = R.dot(self.e1)
-        theta = np.arctan2(b1[1], b1[0])
-        self.b1d = np.array([np.cos(theta), np.sin(theta), 0.]) 
         # Re-orthonormalize:
         if not isRotationMatrix(R):
             U, s, VT = psvd(R)
@@ -216,8 +213,8 @@ class QuadEnv(gym.Env):
         self.M  = np.zeros(3)
 
         # Integral terms:
-        self.eIX.set_zero() # Set all integrals to zero
-        self.eIR.set_zero()
+        self.eIx.set_zero() # Set all integrals to zero
+        self.eIb1.set_zero()
 
         # for drawing real-time plots:
         self.t = 0
@@ -342,26 +339,27 @@ class QuadEnv(gym.Env):
 
 
     def sample_init_error(self, env_type='train'):
+        self.yaw = uniform(size=1,low=-pi, high=pi)  # initial yaw angle, [rad]
         if env_type == 'train':
             # Spawning at the origin position and at zero angle (w/ random linear and angular velocity).
             if random.random() < 0.2: # 20% of the training
                 self.init_x = 0.0 # initial pos error,[m]
                 self.init_R = 0 * self.D2R  # ±0 deg 
-                self.yaw = 0.
                 self.init_v = 0. # initial vel error, [m/s]
                 self.init_W = 0. # initial ang vel error, [rad/s]
+                # self.yaw = 0.
             else:
-                self.init_x = 0.8 # initial pos error,[m]
+                self.init_x = 0.5 # initial pos error,[m]
                 self.init_R = 50 * self.D2R  # ±50 deg 
-                self.yaw = uniform(size=1,low=-pi, high=pi) 
                 self.init_v = self.v_lim*0.5 # 50%; initial vel error, [m/s]
                 self.init_W = self.W_lim*0.5 # 50%; initial ang vel error, [rad/s]
+                # self.yaw = uniform(size=1,low=-pi, high=pi)
         elif env_type == 'eval':
-            self.init_x = 0.5 # initial pos error,[m]
-            self.init_v = self.v_lim*0.1 # initial vel error, [m/s]
-            self.init_R = 10 * self.D2R # ±10 deg
-            self.init_W = self.W_lim*0.1 # initial ang vel error, [rad/s]
-            self.yaw = uniform(size=1,low=-pi/4, high=pi/4) 
+            self.init_x = 0.3 # initial pos error,[m]
+            self.init_v = self.v_lim*0.05 # initial vel error, [m/s]
+            self.init_R = 5 * self.D2R # ±5 deg
+            self.init_W = self.W_lim*0.05 # initial ang vel error, [rad/s]
+            # self.yaw = uniform(size=1,low=-pi/4, high=pi/4) 
 
 
     def set_random_parameters(self, env_type='train'):
@@ -416,10 +414,11 @@ class QuadEnv(gym.Env):
         return self.state
 
 
-    def set_goal_state(self, xd, vd, b1d, Wd):
+    def set_goal_state(self, xd, vd, b1d, b1d_dot, Wd):
         self.xd  = xd # desired tracking position command, [m] 
         self.vd  = vd # desired velocity command, [m/s]
-        self.b1d = b1d # desired heading direction        
+        self.b1d = b1d # desired heading direction   
+        self.b1d_dot = b1d_dot # desired heading direction derivative     
         self.Wd  = Wd # desired angular velocity [rad/s]
 
 
@@ -439,30 +438,42 @@ class QuadEnv(gym.Env):
         eW_norm = W_norm - Wd_norm # norm ang vel error
 
         # Compute yaw angle error: 
-        b1 = R @ np.array([1.,0.,0.])
-        b2 = R @ np.array([0.,1.,0.])
-        b3 = R @ np.array([0.,0.,1.])
+        b1, b2, b3 = R@self.e1, R@self.e2, R@self.e3
         b1c = -(hat(b3) @ hat(b3)) @ self.b1d # desired b1
-        eb1 = norm_ang_btw_two_vectors(b1c, b1) # b1 error, [-1, 1) # -np.dot(b1c,b2)/np.pi
+        eb1_norm = norm_ang_btw_two_vectors(b1c, b1) # b1 error, [-1, 1)
+        #################################################################
+        W = self.state[15:18]
+        b3_dot = R @ hat(W) @ self.e3
+
+        b1c = self.b1d - np.dot(self.b1d, b3) * b3
+        b1c_dot = self.b1d_dot - (np.dot(self.b1d_dot, b3) * b3 + np.dot(self.b1d, b3_dot) * b3 + np.dot(self.b1d, b3) * b3_dot)
+        omega_c = np.cross(b1c_dot, b1c)
+
+        eb1 = np.arctan2(np.dot(-b1c, b2), np.dot(b1c, b1))
+        eb1_norm = eb1/np.pi
+        eb1_dot = W[2] - omega_c[2]
+        # print(eb1_norm, eb1_dot)
+        # TODO: eb1_dot_norm
+        #################################################################
         
         # Update integral terms: 
-        self.eIX.integrate(-self.alpha*self.eIX.error + ex_norm*self.x_lim, self.dt) 
-        self.eIx = clip(self.eIX.error/self.eIx_lim, -self.sat_sigma, self.sat_sigma)
-        self.eIR.integrate(-self.beta*self.eIR.error + eb1*np.pi, self.dt) # b1 integral error
-        self.eIb1 = clip(self.eIR.error/self.eIb1_lim, -self.sat_sigma, self.sat_sigma)
+        self.eIx.integrate(-self.alpha*self.eIx.error + ex_norm*self.x_lim, self.dt) 
+        self.eIx_norm = clip(self.eIx.error/self.eIx_lim, -self.sat_sigma, self.sat_sigma)
+        self.eIb1.integrate(-self.beta*self.eIb1.error + eb1_norm*np.pi, self.dt) # b1 integral error
+        self.eIb1_norm = clip(self.eIb1.error/self.eIb1_lim, -self.sat_sigma, self.sat_sigma)
 
         if framework in ("CTDE","DTDE"):
             # Agent1's obs:
-            ew12 = eW_norm[0]*b1 + eW_norm[1]*b2
-            obs_1 = np.concatenate((ex_norm, self.eIx, ev_norm, b3, ew12), axis=None, dtype=np.float32)
+            ew12_norm = eW_norm[0]*b1 + eW_norm[1]*b2
+            obs_1 = np.concatenate((ex_norm, self.eIx_norm, ev_norm, b3, ew12_norm), axis=None, dtype=np.float32)
             # Agent2's obs:
             eW3_norm = eW_norm[2]
-            obs_2 = np.concatenate((b1, eb1, self.eIb1, eW3_norm), axis=None, dtype=np.float32)
+            obs_2 = np.concatenate((b1, eb1_norm, self.eIb1_norm, eW3_norm, eb1_dot), axis=None, dtype=np.float32)
             error_obs_n = [obs_1, obs_2]
         elif framework == "SARL":
             # Single-agent's obs:
             R_vec = R.reshape(9, 1, order='F').flatten()
-            obs = np.concatenate((ex_norm, self.eIx, ev_norm, R_vec, eb1, self.eIb1, eW_norm), axis=None, dtype=np.float32)
+            obs = np.concatenate((ex_norm, self.eIx_norm, ev_norm, R_vec, eb1_norm, self.eIb1_norm, eW_norm, eb1_dot), axis=None, dtype=np.float32)
             error_obs_n = [obs]
         
         return error_obs_n
@@ -479,22 +490,23 @@ class QuadEnv(gym.Env):
         # De-normalization state vectors
         x, v, R, W = state_decomposition(state_vis)
 
+        # Axis:
+        b1, b2, b3 = R@self.e1, R@self.e2, R@self.e3
+
         # Quadrotor and goal positions:
         quad_pos = x # [m]
         cmd_pos  = self.xd # [m]
-        
-        # Heading commands:
-        b1d_vis = self.b1d
 
-        # Axis:
-        b1, b2, b3 = R@self.e1, R@self.e2, R@self.e3
+        # Heading commands:
+        # b1d_vis = self.b1d
+        b1d_vis = -(hat(b3) @ hat(b3)) @ self.b1d  # b1c
 
         # Init:
         if self.viewer is None:
             # Canvas.
             self.viewer = canvas(title='Quadrotor with RL', width=self.screen_width, height=self.screen_height, \
                                  center=vector(0, 0, cmd_pos[2]), background=color.white, \
-                                 forward=vector(0.5, 0.3, 0.7), up=vector(0, 0, -1), range=2.0) # forward = view point
+                                 forward=vector(0., 0., 1.0), up=vector(0, 0, -1), range=2.0) # forward = view point
             
             # Quad body.
             self.render_quad1 = box(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
@@ -562,7 +574,7 @@ class QuadEnv(gym.Env):
                                         shaftwidth=0.02, color=color.blue)
 
             # Floor.
-            self.render_floor = box(pos=vector(0,0,0),size=vector(5,5,0.05), axis=vector(1,0,0), \
+            self.render_floor = box(pos=vector(0,0,0),size=vector(3,7,0.05), axis=vector(1,0,0), \
                                     opacity=0.2, color=color.black)
         
             # Real-time graphing.

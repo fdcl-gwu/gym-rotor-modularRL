@@ -30,28 +30,25 @@ class Learner:
             """----------------------------------------------------------------------------------------------
             | Agents  | Observations           | obs_dim | Actions:       | act_dim | Rewards               |
             | #agent1 | {ex, ev, b3, ew12, eIx} | 15      | {f_total, tau} | 4       | f(ex, ev, ew12, eIx) |
-            | #agent2 | {b1, eW3, eb1, eIb1}    | 6       | {M3}           | 1       | f(eb1, eW3, eIb1)    |
+            | #agent2 | {b1, eW3, eb1, eIb1, eb1_dot}    | 7       | {M3}           | 1       | f(eb1, eW3, eIb1)    |
             ----------------------------------------------------------------------------------------------"""
             self.env = DecoupledWrapper()
             self.args.N = 2  # num of agents
-            self.args.obs_dim_n = [15, 6]
+            self.args.obs_dim_n = [15, 7]
             self.args.action_dim_n = [4, 1]
         elif self.framework == "SARL":
             """------------------------------------------------------------------------------------------------------------
             | Agents  | Observations                    | obs_dim | Actions:     | act_dim | Rewards                       |
-            | #agent1 | {ex, ev, R, eW, eIx, eb1, eIb1} | 23      | {f_total, M} | 4       | f(ex, ev, eb1, eW, eIx, eIb1) |
+            | #agent1 | {ex, ev, R, eW, eIx, eb1, eIb1, eb1_dot} | 24      | {f_total, M} | 4       | f(ex, ev, eb1, eW, eIx, eIb1) |
             -------------------------------------------------------------------------------------------------------------"""
             self.env = CoupledWrapper()
             self.args.N = 1  # num of agents
-            self.args.obs_dim_n = [23]
+            self.args.obs_dim_n = [24]
             self.args.action_dim_n = [4]
         
         # Set seed for random number generators:
         self.seed = self.args.seed
-        np.random.seed(self.seed)
-        torch.manual_seed(self.seed)
-        self.env.action_space.seed(self.seed)
-        self.env.observation_space.seed(self.seed)
+        set_seed(self.env, self.seed)  # set seed for random number generators
 
         # Limits of each state:
         self.x_lim, self.v_lim = self.env.x_lim, self.env.v_lim
@@ -66,9 +63,9 @@ class Learner:
         
         # Initialize the trajectory generator for curriculum learning:
         self.trajectory_generator = TrajectoryGenerator(self.env)  
-        self.trajectory_generator.mark_traj_start() # reset trajectories
+        # self.trajectory_generator.mark_traj_start() # reset trajectories
         self.curriculum_interval = (400_000, 500_000, 700_000, 900_000, 1_100_000)  # interval for curriculum learning
-        self.mode = 0  # set mode for generating curtain trajectories 
+        self.mode = 7  # set mode for generating curtain trajectories 
 
         # Initialize N agents:
         if self.framework == "CTDE":
@@ -113,8 +110,8 @@ class Learner:
 
         # Initialize the environment:
         state, done_episode = self.env.reset(env_type='train', seed=self.seed), False
-        xd, vd, b1d, Wd = self.trajectory_generator.get_desired(state, self.mode)
-        self.env.set_goal_state(xd, vd, b1d, Wd)
+        xd, vd, b1d, b1d_dot, Wd = self.trajectory_generator.get_desired(state, self.mode)
+        self.env.set_goal_state(xd, vd, b1d, b1d_dot, Wd)
         obs_n = self.env.get_norm_error_state(self.framework)
 
         # Initialize reward variables:
@@ -130,10 +127,10 @@ class Learner:
             self.total_timesteps += 1
             episode_timesteps += 1
 
-            # Generate trajectories for evaluation:
+            # Generate trajectories for training:
             state = self.env.get_current_state()
-            xd, vd, b1d, Wd = self.trajectory_generator.get_desired(state, self.mode)
-            self.env.set_goal_state(xd, vd, b1d, Wd)
+            xd, vd, b1d, b1d_dot, Wd = self.trajectory_generator.get_desired(state, self.mode)
+            self.env.set_goal_state(xd, vd, b1d, b1d_dot, Wd)
 
             # Each agent selects actions based on its own local observations with exploration noise:
             if self.total_timesteps < self.args.start_timesteps:  # select actions randomly
@@ -145,12 +142,12 @@ class Learner:
             # Perform actions in the environment:
             obs_next_n, r_n, done_n, _, _ = self.env.step(copy.deepcopy(action))
             state_next = self.env.get_current_state()
-            ex, _, _, eb1, _ = get_error_state(obs_next_n, self.x_lim, self.v_lim, self.eIx_lim, self.eIb1_lim, args)
+            ex, _, _, eb1, _, _ = get_error_state(obs_next_n, self.x_lim, self.v_lim, self.eIx_lim, self.eIb1_lim, args)
 
             # Episode termination:
             if episode_timesteps == self.args.max_steps:  # episode terminated!
                 done_episode = True
-                done_n[0] = True if (abs(ex) <= 0.05).all() and r_n[0] != -1. else False  # problem is solved! when ex < 0.05m
+                done_n[0] = True if (abs(ex) <= 0.04).all() and r_n[0] != -1. else False  # problem is solved! when ex < 0.04m
                 if self.framework in ("CTDE","DTDE"):
                     done_n[1] = True if abs(eb1) <= 0.02 and r_n[1] != -1. else False  # problem is solved! when eb1 < 0.02rad
 
@@ -176,7 +173,7 @@ class Learner:
                 5: circle
                 6: eight shaped curve
                 ----------------------------------------------------------"""
-                
+                """
                 if self.total_timesteps <= self.curriculum_interval[0]:
                     self.mode = 0
                 elif self.total_timesteps <= self.curriculum_interval[1]:
@@ -187,8 +184,8 @@ class Learner:
                     self.mode = 8
                 elif self.total_timesteps >= self.curriculum_interval[4]:
                     self.mode = 9
-                self.trajectory_generator.mark_traj_start() # reset trajectories
-
+                """
+                
                 # Print training updates:
                 print(f"total_timestpes: {self.total_timesteps+1}, time_stpes: {episode_timesteps}, reward: {episode_reward}, ex: {ex}, eb1: {eb1:.3f}, mode: {self.mode}")
 
@@ -202,8 +199,9 @@ class Learner:
                 
                 # Reset environment:
                 state, done_episode = self.env.reset(env_type='train', seed=self.seed), False
-                xd, vd, b1d, Wd = self.trajectory_generator.get_desired(state, self.mode)
-                self.env.set_goal_state(xd, vd, b1d, Wd)
+                self.trajectory_generator.mark_traj_start(state) # reset trajectories
+                xd, vd, b1d, b1d_dot, Wd = self.trajectory_generator.get_desired(state, self.mode)
+                self.env.set_goal_state(xd, vd, b1d, b1d_dot, Wd)
                 obs_n = self.env.get_norm_error_state(self.framework)
                 if self.framework in ("CTDE","DTDE"):
                     episode_reward = [0.,0.]
@@ -233,9 +231,10 @@ class Learner:
                         self.agent_n[agent_id].save_model(self.framework, self.total_timesteps, agent_id, self.seed)
             
             # Reset max_total_reward when curriculum changed:
+            """
             if self.total_timesteps in self.curriculum_interval:
                 max_total_reward = [0.8*self.eval_max_steps, 0.8*self.eval_max_steps]  # reset max_total_reward
-
+            """
         # Close environment:
         self.env.close()
 
@@ -249,14 +248,11 @@ class Learner:
 
         # Initialize the trajectory generator for evaluation:
         eval_trajectory_generator = TrajectoryGenerator(eval_env)  
-        eval_trajectory_generator.mark_traj_start() # reset trajectories
+        # eval_trajectory_generator.mark_traj_start() # reset trajectories
 
         # Fixed seed is used for the eval environment:
-        seed = 123
-        eval_env.action_space.seed(seed)
-        eval_env.observation_space.seed(seed)
-        torch.manual_seed(seed)
-        np.random.seed(seed)
+        eval_seed = 1992
+        set_seed(eval_env, eval_seed)  # set seed for random number generators
 
         # Save rewards and models:
         success_count = []
@@ -278,15 +274,15 @@ class Learner:
             5: circle
             6: eight shaped curve
             ----------------------------------------------------------"""
-            eval_trajectory_generator.mark_traj_start() # reset trajectories
 
             # Data save:
             act_list, obs_list, cmd_list = [], [], [] if args.save_log else None
 
             # Initialize the environment:
-            state = eval_env.reset(env_type='eval', seed=self.seed)
-            xd, vd, b1d, Wd = eval_trajectory_generator.get_desired(state, mode)
-            eval_env.set_goal_state(xd, vd, b1d, Wd)
+            state = eval_env.reset(env_type='eval', seed=eval_seed)
+            eval_trajectory_generator.mark_traj_start(state) # reset trajectories
+            xd, vd, b1d, b1d_dot, Wd = eval_trajectory_generator.get_desired(state, mode)
+            eval_env.set_goal_state(xd, vd, b1d, b1d_dot, Wd)
             obs_n = eval_env.get_norm_error_state(self.framework)
 
             # Initialize reward variables:
@@ -303,8 +299,8 @@ class Learner:
 
                 # Generate trajectories for evaluation:
                 state = eval_env.get_current_state()
-                xd, vd, b1d, Wd = eval_trajectory_generator.get_desired(state, mode)
-                eval_env.set_goal_state(xd, vd, b1d, Wd)
+                xd, vd, b1d, b1d_dot, Wd = eval_trajectory_generator.get_desired(state, mode)
+                eval_env.set_goal_state(xd, vd, b1d, b1d_dot, Wd)
 
                 # Actions without exploration noise:
                 act_n = [agent.choose_action(obs, explor_noise_std=0.) for agent, obs in zip(self.agent_n, obs_n)]
@@ -314,7 +310,7 @@ class Learner:
                 obs_next_n, r_n, done_n, _, _ = eval_env.step(copy.deepcopy(action))
                 eval_env.render() if self.args.render == True else None
                 state_next = eval_env.get_current_state()
-                ex, eIx, ev, eb1, eIb1 = get_error_state(obs_next_n, self.x_lim, self.v_lim, self.eIx_lim, self.eIb1_lim, args)
+                ex, eIx, ev, eb1, eIb1, eb1_dot = get_error_state(obs_next_n, self.x_lim, self.v_lim, self.eIx_lim, self.eIb1_lim, args)
 
                 # Cumulative rewards:
                 episode_reward = [float('{:.4f}'.format(episode_reward[agent_id]+r)) for agent_id, r in zip(range(self.args.N), r_n)]
@@ -329,10 +325,10 @@ class Learner:
                 # Episode termination:
                 if any(done_n) or episode_timesteps == self.eval_max_steps:
                     if self.framework in ("CTDE","DTDE"):
-                        success[0] = True if (abs(ex) >= 0.05).all() and r_n[0] != -1. else False
+                        success[0] = True if (abs(ex) <= 0.04).all() and r_n[0] != -1. else False
                         success[1] = True if abs(eb1) <= 0.02 and r_n[1] != -1. else False
                     elif self.framework == "SARL":
-                        success[0] = True if (abs(ex) <= 0.05).all() and r_n[0] != -1. else False
+                        success[0] = True if (abs(ex) <= 0.04).all() and r_n[0] != -1. else False
                     print(f"eval_iter: {num_eval+1}, time_stpes: {episode_timesteps}, episode_reward: {episode_reward}, episode_benchmark_reward: {episode_benchmark_reward:.3f}, ex: {ex}, eb1: {eb1:.3f}")
                     success_count.append(success)
                     break

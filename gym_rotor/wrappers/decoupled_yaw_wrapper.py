@@ -38,11 +38,10 @@ class DecoupledWrapper(QuadEnv):
         self.M3 = 0. # [Nm]
 
         # Reset integral terms:
-        self.eIX.set_zero() # Set all integrals to zero
-        self.eIx = np.zeros(3)
-        self.eIR.set_zero()
-        self.eb1 = 0.
-        self.eIb1 = 0.
+        self.eIx.set_zero() # Set all integrals to zero
+        self.eIx_norm = np.zeros(3)
+        self.eIb1.set_zero()
+        self.eIb1_norm = 0.
 
         return np.array(self.state, dtype=np.float32)
         
@@ -84,8 +83,8 @@ class DecoupledWrapper(QuadEnv):
 
         # Modular agents' obs:
         """
-        norm_obs_1 = (ex_norm, self.eIx, ev_norm, b3, ew12)
-        norm_obs_2 = (b1, eb1, self.eIb1, eW3_norm)
+        norm_obs_1 = (ex_norm, eIx_norm, ev_norm, b3, ew12_norm)
+        norm_obs_2 = (b1, eb1_norm, eIb1_norm, eW3_norm, eb1_dot)
         """
         obs = self.get_norm_error_state(self.framework)
 
@@ -104,13 +103,14 @@ class DecoupledWrapper(QuadEnv):
         rwd_1 = reward_eX + reward_eIX+ reward_eV + reward_ew12
 
         # Agent2's obs
-        _, eb1_norm, eIb1_norm, eW3_norm = obs2_decomposition(obs[1])
+        _, eb1_norm, eIb1_norm, eW3_norm, eb1_dot = obs2_decomposition(obs[1])
 
         # Agent2's reward:
         reward_eb1  = -self.Cb1*abs(eb1_norm)
         reward_eIb1 = -self.CIb1*abs(eIb1_norm)
-        reward_eW3  = -self.CW3*(abs(eW3_norm)**2)
-        rwd_2 = reward_eb1 + reward_eIb1 + reward_eW3 
+        reward_eW3  = -self.CW3*(abs(eW3_norm))
+        reward_eb1_dot = -self.Cb1_dot*(abs(eb1_dot))
+        rwd_2 = reward_eb1 + reward_eIb1 + reward_eW3 + reward_eb1_dot
 
         return [rwd_1, rwd_2]
 
@@ -129,13 +129,13 @@ class DecoupledWrapper(QuadEnv):
         )
 
         # Agent2's obs
-        _, eb1_norm, eIb1_norm, eW3_norm = obs2_decomposition(obs[1])
+        _, eb1_norm, eIb1_norm, eW3_norm, _ = obs2_decomposition(obs[1])
 
         # Agent2's terminal states:
         done_2 = False
         done_2 = bool(
-            (abs(eb1_norm) >= 1.0) 
-            or (abs(eW3_norm) >= 1.0) 
+            (abs(eW3_norm) >= 1.0) 
+            # or (abs(eb1_norm) >= 1.0) 
             # or (abs(eIb1_norm) >= 1.0).any()
         )
 
