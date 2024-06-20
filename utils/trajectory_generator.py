@@ -207,7 +207,7 @@ class TrajectoryGenerator:
     def set_desired_states_to_current(self):
         self.xd = np.copy(self.x)
         self.vd = np.copy(self.v)
-        self.b1d = np.array([1.,0.,0.]) #TODO: self.get_current_b1()
+        self.b1d = self.get_current_b1()
 
     
     def get_current_b1(self):
@@ -227,19 +227,21 @@ class TrajectoryGenerator:
     def manual(self):
         if not self.manual_mode_init:
             self.set_desired_states_to_current()
-            self.update_initial_state()
+            # self.update_initial_state()
+            b1 = self.R.dot(self.e1)
+            self.theta_init = np.arctan2(b1[1], b1[0])
 
             self.manual_mode_init = True
             self.x_offset = np.zeros(3)
             self.yaw_offset = 0.
 
-            # print('Switched to manual mode')
+            print('Switched to manual mode')
         
         self.xd = self.x_init + self.x_offset
         self.vd = np.zeros(3)
 
         theta = self.theta_init + self.yaw_offset
-        self.b1d = np.array([1.,0.,0.]) #TODO: np.array([np.cos(theta), np.sin(theta), 0.0])
+        self.b1d = np.array([np.cos(theta), np.sin(theta), 0.0])
 
 
     def takeoff(self):
@@ -254,7 +256,7 @@ class TrajectoryGenerator:
             self.t_traj = (self.takeoff_end_height - self.x[2]) / self.takeoff_velocity
 
             # Set the take-off yaw to the current yaw:
-            self.b1d = np.array([1.,0.,0.]) #TODO: self.get_current_b1()
+            self.b1d = self.get_current_b1()
 
             self.trajectory_started = True
 
@@ -289,7 +291,7 @@ class TrajectoryGenerator:
             self.t_traj = (self.landing_motor_cutoff_height - self.x[2]) / self.landing_velocity
 
             # Set the take-off yaw to the current yaw:
-            self.b1d = np.array([1.,0.,0.]) #TODO: self.get_current_b1()
+            self.b1d = self.get_current_b1()
 
             self.trajectory_started = True
 
