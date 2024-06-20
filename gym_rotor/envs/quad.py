@@ -24,20 +24,20 @@ class QuadEnv(gym.Env):
         parser = args_parse.create_parser()
         args = parser.parse_args()
 
-        # Quadrotor parameters:
-        self.m = 2.15 # mass of quad, [kg]
-        self.d = 0.23 # arm length, [m]
-        self.J = np.diag([0.022, 0.022, 0.035]) # inertia matrix of quad, [kg m2]
-        self.c_tf = 0.0135 # torque-to-thrust coefficients
-        self.c_tw = 1.8 # thrust-to-weight coefficients
+        # Nominal value of quadrotor parameters:
+        self.m_nominal = 2.15 # mass of quad, [kg]
+        self.d_nominal = 0.23 # arm length, [m]
+        self.J_nominal = np.diag([0.022, 0.022, 0.035]) # inertia matrix of quad, [kg m2]
+        self.c_tf_nominal = 0.0135 # torque-to-thrust coefficients
+        self.c_tw_nominal = 2.2 # thrust-to-weight coefficients
         self.g = 9.81 # standard gravity
 
         # Force and Moment:
-        self.f = self.m * self.g # magnitude of total thrust to overcome  
+        self.f = self.m_nominal * self.g # magnitude of total thrust to overcome  
                                  # gravity and mass (No air resistance), [N]
-        self.hover_force = self.m * self.g / 4.0 # thrust magnitude of each motor, [N]
+        self.hover_force = self.m_nominal * self.g / 4.0 # thrust magnitude of each motor, [N]
         self.min_force = 0.5 # minimum thrust of each motor, [N]
-        self.max_force = self.c_tw * self.hover_force # maximum thrust of each motor, [N]
+        self.max_force = self.c_tw_nominal * self.hover_force # maximum thrust of each motor, [N]
         self.avrg_act = (self.min_force+self.max_force)/2.0 
         self.scale_act = self.max_force-self.avrg_act # actor scaling
 
@@ -50,9 +50,9 @@ class QuadEnv(gym.Env):
         self.fM = np.zeros((4, 1)) # Force-moment vector
         self.forces_to_fM = np.array([
             [1.0, 1.0, 1.0, 1.0],
-            [0.0, -self.d, 0.0, self.d],
-            [self.d, 0.0, -self.d, 0.0],
-            [-self.c_tf, self.c_tf, -self.c_tf, self.c_tf]
+            [0.0, -self.d_nominal, 0.0, self.d_nominal],
+            [self.d_nominal, 0.0, -self.d_nominal, 0.0],
+            [-self.c_tf_nominal, self.c_tf_nominal, -self.c_tf_nominal, self.c_tf_nominal]
         ]) # Conversion matrix of forces to force-moment 
         self.fM_to_forces = np.linalg.inv(self.forces_to_fM)
 
@@ -364,15 +364,17 @@ class QuadEnv(gym.Env):
 
     def set_random_parameters(self, env_type='train'):
         # Nominal quadrotor parameters:
-        self.m = 2.15 # mass of quad, [kg]
-        self.d = 0.23 # arm length, [m]
-        J1, J2, J3 = 0.022, 0.022, 0.035
+        self.m = self.m_nominal # mass of quad, [kg]
+        self.d = self.d_nominal # arm length, [m]
+        J1, J2, J3 = self.J_nominal[0,0], self.J_nominal[1,1], self.J_nominal[2,2]
         self.J = np.diag([J1, J2, J3]) # inertia matrix of quad, [kg m2]
-        self.c_tf = 0.0135 # torque-to-thrust coefficients
-        self.c_tw = 2.2 # thrust-to-weight coefficients
+        self.c_tf = self.c_tf_nominal # torque-to-thrust coefficients
+        self.c_tw = self.c_tw_nominal # thrust-to-weight coefficients
 
         if env_type == 'train':
+            # Randomized quadrotor parameters:
             uncertainty_range = self.UDM_percentage/100
+            
             # Quadrotor parameters:
             m_range = self.m * uncertainty_range
             d_range = self.d * uncertainty_range
@@ -479,7 +481,6 @@ class QuadEnv(gym.Env):
         return error_obs_n
 
 
-
     def render(self, mode='human', close=False):
         # https://engcourses-uofa.ca/wp-content/uploads/Visual-Python-VPython-ver-2.pdf
         from vpython import canvas, vector, box, sphere, color, rate, cylinder, arrow, vec, graph, gcurve, gdots
@@ -501,56 +502,60 @@ class QuadEnv(gym.Env):
         # b1d_vis = self.b1d
         b1d_vis = -(hat(b3) @ hat(b3)) @ self.b1d  # b1c
 
+        # offsets:
+        rotors_offset = 0.02
+        force_offset = -0.03
+        axis_offset = 0.4
+
         # Init:
         if self.viewer is None:
             # Canvas.
             self.viewer = canvas(title='Quadrotor with RL', width=self.screen_width, height=self.screen_height, \
                                  center=vector(0, 0, cmd_pos[2]), background=color.white, \
-                                 forward=vector(0., 0., 1.0), up=vector(0, 0, -1), range=2.0) # forward = view point
+                                 forward=vector(0.2, 0.2, 1.0), up=vector(0, 0, -1), range=2.0) # forward = view point
             
             # Quad body.
             self.render_quad1 = box(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
-                                    axis=vector(b1[0], b1[1], b1[2]), \
-                                    length=0.2, height=0.05, width=0.05) # vector(quad_pos[0], quad_pos[1], 0)
+                                    axis=vector(2*self.d_nominal*b1[0], 2*self.d_nominal*b1[1], 2*self.d_nominal*b1[2]), \
+                                    length=0.1, height=0.02, width=0.02) # vector(quad_pos[0], quad_pos[1], 0)
             self.render_quad2 = box(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
-                                    axis=vector(b2[0], b2[1], b2[2]), \
-                                    length=0.2, height=0.05, width=0.05)
+                                    axis=vector(2*self.d_nominal*b2[0], 2*self.d_nominal*b2[1], 2*self.d_nominal*b2[2]), \
+                                    length=0.1, height=0.02, width=0.02)
             # Rotors.
-            rotors_offest = 0.02
             self.render_rotor1 = cylinder(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
-                                          axis=vector(rotors_offest*b3[0], rotors_offest*b3[1], rotors_offest*b3[2]), \
-                                          radius=0.2, color=color.blue, opacity=0.3)
+                                          axis=vector(rotors_offset*b3[0], rotors_offset*b3[1], rotors_offset*b3[2]), \
+                                          radius=0.1, color=color.yellow, opacity=0.7)
             self.render_rotor2 = cylinder(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
-                                          axis=vector(rotors_offest*b3[0], rotors_offest*b3[1], rotors_offest*b3[2]), \
-                                          radius=0.2, color=color.cyan, opacity=0.3)
+                                          axis=vector(rotors_offset*b3[0], rotors_offset*b3[1], rotors_offset*b3[2]), \
+                                          radius=0.1, color=color.cyan, opacity=0.7)
             self.render_rotor3 = cylinder(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
-                                          axis=vector(rotors_offest*b3[0], rotors_offest*b3[1], rotors_offest*b3[2]), \
-                                          radius=0.2, color=color.blue, opacity=0.3)
+                                          axis=vector(rotors_offset*b3[0], rotors_offset*b3[1], rotors_offset*b3[2]), \
+                                          radius=0.1, color=color.cyan, opacity=0.7)
             self.render_rotor4 = cylinder(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
-                                          axis=vector(rotors_offest*b3[0], rotors_offest*b3[1], rotors_offest*b3[2]), \
-                                          radius=0.2, color=color.cyan, opacity=0.3)
+                                          axis=vector(rotors_offset*b3[0], rotors_offset*b3[1], rotors_offset*b3[2]), \
+                                          radius=0.1, color=color.cyan, opacity=0.7)
 
             # Force arrows.
             self.render_force_rotor1 = arrow(pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
                                              axis=vector(b3[0], b3[1], b3[2]), \
-                                             shaftwidth=0.04, color=color.blue)
+                                             shaftwidth=0.02, color=color.yellow)
             self.render_force_rotor2 = arrow(pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
                                              axis=vector(b3[0], b3[1], b3[2]), \
-                                             shaftwidth=0.04, color=color.cyan)
+                                             shaftwidth=0.02, color=color.cyan)
             self.render_force_rotor3 = arrow(pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
                                              axis=vector(b3[0], b3[1], b3[2]), \
-                                             shaftwidth=0.04, color=color.blue)
+                                             shaftwidth=0.02, color=color.cyan)
             self.render_force_rotor4 = arrow(pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
                                              axis=vector(b3[0], b3[1], b3[2]), \
-                                             shaftwidth=0.04, color=color.cyan)
+                                             shaftwidth=0.02, color=color.cyan)
                                     
             # Commands.
             self.render_xd = sphere(canvas=self.viewer, pos=vector(cmd_pos[0], cmd_pos[1], cmd_pos[2]), \
-                                    radius=0.06, color=color.red, opacity=0.65, make_trail=True,
+                                    radius=0.03, color=color.red, opacity=0.65, make_trail=True,
                                     trail_type='points', interval=10)		
             self.render_b1d = arrow(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
                                      axis=vector(b1d_vis[0], b1d_vis[1], b1d_vis[2]), opacity=0.65, \
-                                     shaftwidth=0.03, color=color.orange)							
+                                     shaftwidth=0.012, color=color.red, round=True)							
             
             # Inertial axis.				
             self.e1_axis = arrow(pos=vector(2.5, -2.5, 0), axis=0.5*vector(1, 0, 0), \
@@ -563,15 +568,15 @@ class QuadEnv(gym.Env):
             # Body axis.				
             self.render_b1_axis = arrow(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
                                         axis=vector(b1[0], b1[1], b1[2]), \
-                                        shaftwidth=0.02, color=color.red, \
+                                        shaftwidth=0.01, color=color.yellow, \
                                         make_trail=True, trail_color=color.blue, trail_radius=0.007)
                                         # trail_type='points', retain=200, interval=10)
             self.render_b2_axis = arrow(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
                                         axis=vector(b2[0], b2[1], b2[2]), \
-                                        shaftwidth=0.02, color=color.green)
+                                        shaftwidth=0.01, color=color.green)
             self.render_b3_axis = arrow(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
                                         axis=vector(b3[0], b3[1], b3[2]), \
-                                        shaftwidth=0.02, color=color.blue)
+                                        shaftwidth=0.01, color=color.blue)
 
             # Floor.
             self.render_floor = box(pos=vector(0,0,0),size=vector(3,7,0.05), axis=vector(1,0,0), \
@@ -630,12 +635,12 @@ class QuadEnv(gym.Env):
         self.render_quad2.pos.y = quad_pos[1]
         self.render_quad2.pos.z = quad_pos[2]
 
-        self.render_quad1.axis.x = b1[0]
-        self.render_quad1.axis.y = b1[1]	
-        self.render_quad1.axis.z = b1[2]
-        self.render_quad2.axis.x = b2[0]
-        self.render_quad2.axis.y = b2[1]
-        self.render_quad2.axis.z = b2[2]
+        self.render_quad1.axis.x = 2*self.d_nominal*b1[0]
+        self.render_quad1.axis.y = 2*self.d_nominal*b1[1]	
+        self.render_quad1.axis.z = 2*self.d_nominal*b1[2]
+        self.render_quad2.axis.x = 2*self.d_nominal*b2[0]
+        self.render_quad2.axis.y = 2*self.d_nominal*b2[1]
+        self.render_quad2.axis.z = 2*self.d_nominal*b2[2]
 
         self.render_quad1.up.x = b3[0]
         self.render_quad1.up.y = b3[1]
@@ -645,36 +650,35 @@ class QuadEnv(gym.Env):
         self.render_quad2.up.z = b3[2]
 
         # Update rotors.
-        rotors_offest = -0.02
-        rotor_pos = 0.5*b1
+        rotor_pos = self.d_nominal*b1
         self.render_rotor1.pos.x = quad_pos[0] + rotor_pos[0]
         self.render_rotor1.pos.y = quad_pos[1] + rotor_pos[1]
         self.render_rotor1.pos.z = quad_pos[2] + rotor_pos[2]
-        rotor_pos = 0.5*b2
+        rotor_pos = self.d_nominal*b2
         self.render_rotor2.pos.x = quad_pos[0] + rotor_pos[0]
         self.render_rotor2.pos.y = quad_pos[1] + rotor_pos[1]
         self.render_rotor2.pos.z = quad_pos[2] + rotor_pos[2]
-        rotor_pos = (-0.5)*b1
+        rotor_pos = -self.d_nominal*b1
         self.render_rotor3.pos.x = quad_pos[0] + rotor_pos[0]
         self.render_rotor3.pos.y = quad_pos[1] + rotor_pos[1]
         self.render_rotor3.pos.z = quad_pos[2] + rotor_pos[2]
-        rotor_pos = (-0.5)*b2
+        rotor_pos = -self.d_nominal*b2
         self.render_rotor4.pos.x = quad_pos[0] + rotor_pos[0]
         self.render_rotor4.pos.y = quad_pos[1] + rotor_pos[1]
         self.render_rotor4.pos.z = quad_pos[2] + rotor_pos[2]
 
-        self.render_rotor1.axis.x = rotors_offest*b3[0]
-        self.render_rotor1.axis.y = rotors_offest*b3[1]
-        self.render_rotor1.axis.z = rotors_offest*b3[2]
-        self.render_rotor2.axis.x = rotors_offest*b3[0]
-        self.render_rotor2.axis.y = rotors_offest*b3[1]
-        self.render_rotor2.axis.z = rotors_offest*b3[2]
-        self.render_rotor3.axis.x = rotors_offest*b3[0]
-        self.render_rotor3.axis.y = rotors_offest*b3[1]
-        self.render_rotor3.axis.z = rotors_offest*b3[2]
-        self.render_rotor4.axis.x = rotors_offest*b3[0]
-        self.render_rotor4.axis.y = rotors_offest*b3[1]
-        self.render_rotor4.axis.z = rotors_offest*b3[2]
+        self.render_rotor1.axis.x = rotors_offset*b3[0]
+        self.render_rotor1.axis.y = rotors_offset*b3[1]
+        self.render_rotor1.axis.z = rotors_offset*b3[2]
+        self.render_rotor2.axis.x = rotors_offset*b3[0]
+        self.render_rotor2.axis.y = rotors_offset*b3[1]
+        self.render_rotor2.axis.z = rotors_offset*b3[2]
+        self.render_rotor3.axis.x = rotors_offset*b3[0]
+        self.render_rotor3.axis.y = rotors_offset*b3[1]
+        self.render_rotor3.axis.z = rotors_offset*b3[2]
+        self.render_rotor4.axis.x = rotors_offset*b3[0]
+        self.render_rotor4.axis.y = rotors_offset*b3[1]
+        self.render_rotor4.axis.z = rotors_offset*b3[2]
 
         self.render_rotor1.up.x = b2[0]
         self.render_rotor1.up.y = b2[1]
@@ -690,52 +694,49 @@ class QuadEnv(gym.Env):
         self.render_rotor4.up.z = b2[2]
 
         # Update force arrows.
-        rotor_pos = 0.5*b1
+        rotor_pos = self.d_nominal*b1
         self.render_force_rotor1.pos.x = quad_pos[0] + rotor_pos[0]
         self.render_force_rotor1.pos.y = quad_pos[1] + rotor_pos[1]
         self.render_force_rotor1.pos.z = quad_pos[2] + rotor_pos[2]
-        rotor_pos = 0.5*b2
+        rotor_pos = self.d_nominal*b2
         self.render_force_rotor2.pos.x = quad_pos[0] + rotor_pos[0]
         self.render_force_rotor2.pos.y = quad_pos[1] + rotor_pos[1]
         self.render_force_rotor2.pos.z = quad_pos[2] + rotor_pos[2]
-        rotor_pos = (-0.5)*b1
+        rotor_pos = -self.d_nominal*b1
         self.render_force_rotor3.pos.x = quad_pos[0] + rotor_pos[0]
         self.render_force_rotor3.pos.y = quad_pos[1] + rotor_pos[1]
         self.render_force_rotor3.pos.z = quad_pos[2] + rotor_pos[2]
-        rotor_pos = (-0.5)*b2
+        rotor_pos = -self.d_nominal*b2
         self.render_force_rotor4.pos.x = quad_pos[0] + rotor_pos[0]
         self.render_force_rotor4.pos.y = quad_pos[1] + rotor_pos[1]
         self.render_force_rotor4.pos.z = quad_pos[2] + rotor_pos[2]
 
-        force_offest = -0.05
-        self.render_force_rotor1.axis.x = force_offest * self.f1 * b3[0] 
-        self.render_force_rotor1.axis.y = force_offest * self.f1 * b3[1]
-        self.render_force_rotor1.axis.z = force_offest * self.f1 * b3[2]
-        self.render_force_rotor2.axis.x = force_offest * self.f2 * b3[0]
-        self.render_force_rotor2.axis.y = force_offest * self.f2 * b3[1]
-        self.render_force_rotor2.axis.z = force_offest * self.f2 * b3[2]
-        self.render_force_rotor3.axis.x = force_offest * self.f3 * b3[0]
-        self.render_force_rotor3.axis.y = force_offest * self.f3 * b3[1]
-        self.render_force_rotor3.axis.z = force_offest * self.f3 * b3[2]
-        self.render_force_rotor4.axis.x = force_offest * self.f4 * b3[0]
-        self.render_force_rotor4.axis.y = force_offest * self.f4 * b3[1]
-        self.render_force_rotor4.axis.z = force_offest * self.f4 * b3[2]
+        self.render_force_rotor1.axis.x = force_offset * self.f1 * b3[0] 
+        self.render_force_rotor1.axis.y = force_offset * self.f1 * b3[1]
+        self.render_force_rotor1.axis.z = force_offset * self.f1 * b3[2]
+        self.render_force_rotor2.axis.x = force_offset * self.f2 * b3[0]
+        self.render_force_rotor2.axis.y = force_offset * self.f2 * b3[1]
+        self.render_force_rotor2.axis.z = force_offset * self.f2 * b3[2]
+        self.render_force_rotor3.axis.x = force_offset * self.f3 * b3[0]
+        self.render_force_rotor3.axis.y = force_offset * self.f3 * b3[1]
+        self.render_force_rotor3.axis.z = force_offset * self.f3 * b3[2]
+        self.render_force_rotor4.axis.x = force_offset * self.f4 * b3[0]
+        self.render_force_rotor4.axis.y = force_offset * self.f4 * b3[1]
+        self.render_force_rotor4.axis.z = force_offset * self.f4 * b3[2]
 
         # Update commands.
         self.render_xd.pos.x = cmd_pos[0]
         self.render_xd.pos.y = cmd_pos[1]
         self.render_xd.pos.z = cmd_pos[2]
 
-        axis_offest = 0.9
         self.render_b1d.pos.x = quad_pos[0]
         self.render_b1d.pos.y = quad_pos[1]
         self.render_b1d.pos.z = quad_pos[2]
-        self.render_b1d.axis.x = axis_offest * b1d_vis[0] 
-        self.render_b1d.axis.y = axis_offest * b1d_vis[1] 
-        self.render_b1d.axis.z = axis_offest * b1d_vis[2] 
+        self.render_b1d.axis.x = (axis_offset*1.2) * b1d_vis[0] 
+        self.render_b1d.axis.y = (axis_offset*1.2) * b1d_vis[1] 
+        self.render_b1d.axis.z = (axis_offset*1.2) * b1d_vis[2] 
         
         # Update body axis.
-        axis_offest = 0.75
         self.render_b1_axis.pos.x = quad_pos[0]
         self.render_b1_axis.pos.y = quad_pos[1]
         self.render_b1_axis.pos.z = quad_pos[2]
@@ -746,15 +747,15 @@ class QuadEnv(gym.Env):
         self.render_b3_axis.pos.y = quad_pos[1]
         self.render_b3_axis.pos.z = quad_pos[2]
 
-        self.render_b1_axis.axis.x = axis_offest * b1[0] 
-        self.render_b1_axis.axis.y = axis_offest * b1[1] 
-        self.render_b1_axis.axis.z = axis_offest * b1[2] 
-        self.render_b2_axis.axis.x = axis_offest * b2[0] 
-        self.render_b2_axis.axis.y = axis_offest * b2[1] 
-        self.render_b2_axis.axis.z = axis_offest * b2[2] 
-        self.render_b3_axis.axis.x = (axis_offest/2) * b3[0] 
-        self.render_b3_axis.axis.y = (axis_offest/2) * b3[1]
-        self.render_b3_axis.axis.z = (axis_offest/2) * b3[2]
+        self.render_b1_axis.axis.x = axis_offset * b1[0] 
+        self.render_b1_axis.axis.y = axis_offset * b1[1] 
+        self.render_b1_axis.axis.z = axis_offset * b1[2] 
+        self.render_b2_axis.axis.x = axis_offset * b2[0] 
+        self.render_b2_axis.axis.y = axis_offset * b2[1] 
+        self.render_b2_axis.axis.z = axis_offset * b2[2] 
+        self.render_b3_axis.axis.x = (axis_offset/1.5) * b3[0] 
+        self.render_b3_axis.axis.y = (axis_offset/1.5) * b3[1]
+        self.render_b3_axis.axis.z = (axis_offset/1.5) * b3[2]
 
         # Screen capture:
         """
