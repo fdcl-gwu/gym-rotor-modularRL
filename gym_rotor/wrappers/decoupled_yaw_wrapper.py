@@ -84,7 +84,7 @@ class DecoupledWrapper(QuadEnv):
         # Modular agents' obs:
         """
         norm_obs_1 = (ex_norm, eIx_norm, ev_norm, b3, ew12_norm)
-        norm_obs_2 = (b1, eb1_norm, eIb1_norm, eW3_norm, eb1_dot)
+        norm_obs_2 = (b1, eb1_norm, eIb1_norm, eW3_norm)
         """
         obs = self.get_norm_error_state(self.framework)
 
@@ -103,14 +103,14 @@ class DecoupledWrapper(QuadEnv):
         rwd_1 = reward_eX + reward_eIX+ reward_eV + reward_ew12
 
         # Agent2's obs
-        _, eb1_norm, eIb1_norm, eW3_norm, eb1_dot = obs2_decomposition(obs[1])
+        _, eb1_norm, eIb1_norm, eW3_norm = obs2_decomposition(obs[1])
 
         # Agent2's reward:
         reward_eb1  = -self.Cb1*abs(eb1_norm)
         reward_eIb1 = -self.CIb1*abs(eIb1_norm)
         reward_eW3  = -self.CW3*(abs(eW3_norm))
-        reward_eb1_dot = -self.Cb1_dot*(abs(eb1_dot))
-        rwd_2 = reward_eb1 + reward_eIb1 + reward_eW3 + reward_eb1_dot
+
+        rwd_2 = reward_eb1 + reward_eIb1 + reward_eW3
 
         return [rwd_1, rwd_2]
 
@@ -129,7 +129,7 @@ class DecoupledWrapper(QuadEnv):
         )
 
         # Agent2's obs
-        _, eb1_norm, eIb1_norm, eW3_norm, _ = obs2_decomposition(obs[1])
+        _, eb1_norm, eIb1_norm, eW3_norm = obs2_decomposition(obs[1])
 
         # Agent2's terminal states:
         done_2 = False

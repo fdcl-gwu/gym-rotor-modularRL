@@ -28,22 +28,22 @@ class Learner:
         self.framework = self.args.framework
         if self.framework in ("CTDE","DTDE"):
             """----------------------------------------------------------------------------------------------
-            | Agents  | Observations           | obs_dim | Actions:       | act_dim | Rewards               |
-            | #agent1 | {ex, ev, b3, ew12, eIx} | 15      | {f_total, tau} | 4       | f(ex, ev, ew12, eIx) |
-            | #agent2 | {b1, eW3, eb1, eIb1, eb1_dot}    | 7       | {M3}           | 1       | f(eb1, eW3, eIb1)    |
+            | Agents  | Observations            | obs_dim | Actions:       | act_dim | Rewards              |
+            | #agent1 | {ex, ev, b3, ew12, eIx} | 15      | {f_total, tau} | 4       | f(ex, eIx, ev, ew12) |
+            | #agent2 | {b1, eW3, eb1, eIb1}    | 6       | {M3}           | 1       | f(eb1, eIb1, eW3)    |
             ----------------------------------------------------------------------------------------------"""
             self.env = DecoupledWrapper()
             self.args.N = 2  # num of agents
-            self.args.obs_dim_n = [15, 7]
+            self.args.obs_dim_n = [15, 6]
             self.args.action_dim_n = [4, 1]
         elif self.framework == "SARL":
-            """------------------------------------------------------------------------------------------------------------
+            """-------------------------------------------------------------------------------------------------------------
             | Agents  | Observations                    | obs_dim | Actions:     | act_dim | Rewards                       |
-            | #agent1 | {ex, ev, R, eW, eIx, eb1, eIb1, eb1_dot} | 24      | {f_total, M} | 4       | f(ex, ev, eb1, eW, eIx, eIb1) |
+            | #agent1 | {ex, ev, R, eW, eIx, eb1, eIb1} | 23      | {f_total, M} | 4       | f(ex, eIx, ev, eb1, eIb1, eW) |
             -------------------------------------------------------------------------------------------------------------"""
             self.env = CoupledWrapper()
             self.args.N = 1  # num of agents
-            self.args.obs_dim_n = [24]
+            self.args.obs_dim_n = [23]
             self.args.action_dim_n = [4]
         
         # Set seed for random number generators:
@@ -65,7 +65,7 @@ class Learner:
         self.trajectory_generator = TrajectoryGenerator(self.env)  
         # self.trajectory_generator.mark_traj_start() # reset trajectories
         self.curriculum_interval = (400_000, 500_000, 700_000, 900_000, 1_100_000)  # interval for curriculum learning
-        self.mode = 7  # set mode for generating curtain trajectories 
+        self.mode = 1  # set mode for generating curtain trajectories 
 
         # Initialize N agents:
         if self.framework == "CTDE":
@@ -142,14 +142,14 @@ class Learner:
             # Perform actions in the environment:
             obs_next_n, r_n, done_n, _, _ = self.env.step(copy.deepcopy(action))
             state_next = self.env.get_current_state()
-            ex, _, _, eb1, _, _ = get_error_state(obs_next_n, self.x_lim, self.v_lim, self.eIx_lim, self.eIb1_lim, args)
+            ex, _, _, eb1, _ = get_error_state(obs_next_n, self.x_lim, self.v_lim, self.eIx_lim, self.eIb1_lim, args)
 
             # Episode termination:
             if episode_timesteps == self.args.max_steps:  # episode terminated!
                 done_episode = True
-                done_n[0] = True if (abs(ex) <= 0.04).all() and r_n[0] != -1. else False  # problem is solved! when ex < 0.04m
+                done_n[0] = True if (abs(ex) <= 0.03).all() and r_n[0] != -1. else False  # problem is solved! when ex < 0.03m
                 if self.framework in ("CTDE","DTDE"):
-                    done_n[1] = True if abs(eb1) <= 0.02 and r_n[1] != -1. else False  # problem is solved! when eb1 < 0.02rad
+                    done_n[1] = True if abs(eb1) <= 0.03 and r_n[1] != -1. else False  # problem is solved! when eb1 < 0.03rad
 
             # Store a set of transitions in replay buffer:
             self.replay_buffer.store_transition(obs_n, act_n, r_n, obs_next_n, done_n)
@@ -166,10 +166,11 @@ class Learner:
             if any(done_n) == True or done_episode == True:
                 # Reset trajectory generation modes for curriculum learning:
                 """ Mode List -----------------------------------------------
-                0 or 1: idle and warm-up (approach to xd = [0,0,0])
+                0: manual mode (idle and warm-up)
+                1: hovering
                 2: take-off
                 3: landing
-                4: stay (hovering)
+                4: stay (maintain current position)
                 5: circle
                 6: eight shaped curve
                 ----------------------------------------------------------"""
@@ -265,7 +266,7 @@ class Learner:
         print("---------------------------------------------------------------------------------------------------------------------")
         for num_eval in range(self.args.num_eval):
             # Set mode for generating trajectories:
-            mode = self.mode
+            mode = self.mode  #TODO: set eval mode to 8
             """ Mode List -----------------------------------------------
             0 or 1: idle and warm-up (approach to xd = [0,0,0])
             2: take-off
@@ -310,11 +311,11 @@ class Learner:
                 obs_next_n, r_n, done_n, _, _ = eval_env.step(copy.deepcopy(action))
                 eval_env.render() if self.args.render == True else None
                 state_next = eval_env.get_current_state()
-                ex, eIx, ev, eb1, eIb1, eb1_dot = get_error_state(obs_next_n, self.x_lim, self.v_lim, self.eIx_lim, self.eIb1_lim, args)
+                ex, eIx, ev, eb1, eIb1 = get_error_state(obs_next_n, self.x_lim, self.v_lim, self.eIx_lim, self.eIb1_lim, args)
 
                 # Cumulative rewards:
                 episode_reward = [float('{:.4f}'.format(episode_reward[agent_id]+r)) for agent_id, r in zip(range(self.args.N), r_n)]
-                episode_benchmark_reward += benchmark_reward_func(ex, ev, eb1)
+                episode_benchmark_reward += benchmark_reward_func(ex, eb1)
 
                 # Save data:
                 if self.args.save_log:
@@ -324,12 +325,13 @@ class Learner:
 
                 # Episode termination:
                 if any(done_n) or episode_timesteps == self.eval_max_steps:
-                    if self.framework in ("CTDE","DTDE"):
-                        success[0] = True if (abs(ex) <= 0.04).all() and r_n[0] != -1. else False
-                        success[1] = True if abs(eb1) <= 0.02 and r_n[1] != -1. else False
-                    elif self.framework == "SARL":
-                        success[0] = True if (abs(ex) <= 0.04).all() and r_n[0] != -1. else False
                     print(f"eval_iter: {num_eval+1}, time_stpes: {episode_timesteps}, episode_reward: {episode_reward}, episode_benchmark_reward: {episode_benchmark_reward:.3f}, ex: {ex}, eb1: {eb1:.3f}")
+                    if episode_timesteps == self.eval_max_steps:
+                        if self.framework in ("CTDE","DTDE"):
+                            success[0] = True if (abs(ex) <= 0.02).all() else False
+                            success[1] = True if abs(eb1) <= 0.02 else False
+                        elif self.framework == "SARL":
+                            success[0] = True if (abs(ex) <= 0.02).all() else False
                     success_count.append(success)
                     break
                 obs_n = obs_next_n

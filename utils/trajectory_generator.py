@@ -14,13 +14,15 @@ class TrajectoryGenerator:
         args = parser.parse_args()
 
         """----------------------------------------------------------
-            self.mode == 0 or self.mode == 1:  # idle and warm-up
+            self.mode == 0  # manual mode (idle and warm-up)
+        -------------------------------------------------------------
+            self.mode == 1:  # hovering
         -------------------------------------------------------------
             self.mode == 2:  # take-off
         -------------------------------------------------------------
             self.mode == 3:  # landing
         -------------------------------------------------------------
-            self.mode == 4:  # stay (hovering)
+            self.mode == 4:  # stay (maintain current position)
         -------------------------------------------------------------
             self.mode == 5:  # circle
         -------------------------------------------------------------
@@ -29,7 +31,9 @@ class TrajectoryGenerator:
         self.mode = 0
         self.is_mode_changed = False
         self.is_landed = False
-        self.e1 = env.e1
+        self.e1 = np.array([1.,0.,0.])
+        self.e2 = np.array([0.,1.,0.])
+        self.e3 = np.array([0.,0.,1.])
         self.R2D = 180./np.pi # [rad] to [deg]
         self.D2R = np.pi/180. # [deg] to [rad]
 
@@ -90,16 +94,16 @@ class TrajectoryGenerator:
         self.circle_W = 0.4
         
         # Eight-shaped curve:
-        self.num_of_eights = 5
+        self.num_of_eights = 10
         self.eight_A1 = 1.0
         self.eight_A2 = 0.6
-        self.eight_T = 15. # the period of the cycle [sec]
-        self.eight_w1 = 2*np.pi/self.eight_T # w = 2*pi*t/T 
+        self.eight_T = 10.0 # the period of the cycle [sec]
+        self.eight_w1 = 2*np.pi/self.eight_T # w = 2*pi*t/self.t_origin 
         self.eight_w2 = self.eight_w1
-        self.eight_w_b1d = 0.05*np.pi # [rad/sec]
+        self.eight_w_b1d = 0.1*np.pi # [rad/sec]
         self.eight_alt_d = -0.3
         self.eight_R_z = 0.1
-        self.eight_R_xy = 1.#0.7
+        self.eight_R_xy = 0.2 #1.
 
     
     def get_desired(self, state, mode):
@@ -117,7 +121,7 @@ class TrajectoryGenerator:
         if mode == 7:
             self.eight_T = 10.0 # the period of the cycle [sec]
             self.eight_w_b1d = 0.1*np.pi # [rad/sec]
-            self.eight_w1 = 2*np.pi/self.eight_T # w = 2*pi*t/T 
+            self.eight_w1 = 2*np.pi/self.eight_T # w = 2*pi*t/self.t_origin 
             self.eight_w2 = self.eight_w1
         elif mode == 8:
             self.eight_T = 7.0 # the period of the cycle [sec]
@@ -146,14 +150,18 @@ class TrajectoryGenerator:
             self.manual()
             return
         
-        if self.mode == 0 or self.mode == 1:  # idle and warm-up
+        if self.mode == 0:  # idle and warm-up
             if self.init_b1d == True:
                 self.set_desired_states_to_zero()
+                """
                 b1d_temp = self.get_current_b1()
                 theta_b1d = np.random.uniform(size=1,low=-25*self.D2R, high=25*self.D2R) 
                 self.b1d = self.R_e3(theta_b1d) @ b1d_temp 
                 # print(theta_b1d, b1d_temp, self.b1d)
+                """
                 self.init_b1d = False
+        elif self.mode == 1:  # hovering
+            self.hovering()
         elif self.mode == 2:  # take-off
             self.takeoff()
         elif self.mode == 3:  # land
@@ -163,8 +171,20 @@ class TrajectoryGenerator:
         elif self.mode == 5:  # circle
             self.circle()
         # elif self.mode == 6:  #  eight-shaped curve
-        elif self.mode >= 6:  # RODO: eight-shaped curve
+        elif self.mode >= 6: 
             self.eight_shaped_curve()
+
+        #############################################################
+        # Compute Wd:
+        b1, b3 = self.R@self.e1, self.R@self.e3
+        b3_dot = self.R @ hat(self.W) @ self.e3
+
+        b1c = self.b1d - np.dot(self.b1d, b3) * b3
+        b1c_dot = self.b1d_dot - (np.dot(self.b1d_dot, b3) * b3 + np.dot(self.b1d, b3_dot) * b3 + np.dot(self.b1d, b3) * b3_dot)
+        omega_c = np.cross(b1c_dot, b1c)
+        omega_c_3 = b3@omega_c
+        self.Wd = np.array([0., 0., omega_c_3])
+        #############################################################
 
 
     def mark_traj_start(self, state_init):
@@ -181,7 +201,6 @@ class TrajectoryGenerator:
 
         self.x_offset = np.zeros(3)
         self.yaw_offset = 0.
-        # self.yaw = np.random.uniform(size=1,low=-np.pi, high=np.pi) 
         self.init_b1d = True
         self.update_initial_state(state_init)
 
@@ -242,6 +261,45 @@ class TrajectoryGenerator:
 
         theta = self.theta_init + self.yaw_offset
         self.b1d = np.array([np.cos(theta), np.sin(theta), 0.0])
+
+
+    def hovering(self):
+        if not self.trajectory_started:
+            self.set_desired_states_to_current()
+            self.trajectory_started = True
+
+            self.x_init = np.copy(self.x)  # initial position [x0, y0, z0]
+            self.t_traj = 2.0  # [sec] time to reach the origin
+            
+            # Compute the coefficients for the quintic polynomial
+            self.coefficients = np.zeros((3, 6))
+            for i in range(3):
+                x0 = self.x_init[i]
+                self.coefficients[i, :] = [x0, 
+                                           0, 
+                                           0, 
+                                           -10 * x0 / (self.t_traj**3), 
+                                           15 * x0 / (self.t_traj**4), 
+                                           -6 * x0 / (self.t_traj**5)]
+
+            w_b1d = np.random.uniform(size=1,low=-0.2*np.pi, high=0.2*np.pi) # [rad/sec]  #TODO: maybe I should fix this
+            self.w_b1d = np.squeeze(w_b1d)  # random yaw rate
+
+        self.update_current_time()
+
+        if self.t < self.t_traj:
+            for i in range(3):
+                a0, a1, a2, a3, a4, a5 = self.coefficients[i, :]
+                self.xd[i] = a5 * self.t**5 + a4 * self.t**4 + a3 * self.t**3 + a2 * self.t**2 + a1 * self.t + a0
+                self.vd[i] = 5 * a5 * self.t**4 + 4 * a4 * self.t**3 + 3 * a3 * self.t**2 + 2 * a2 * self.t + a1
+        else:
+            self.xd = np.array([0., 0., 0.])
+            self.vd = np.array([0., 0., 0.])
+
+        # yaw-axis:
+        self.b1d = np.array([np.cos(self.w_b1d * self.t + self.theta_init), np.sin(self.w_b1d * self.t + self.theta_init), 0.])
+        self.b1d_dot = np.array([-self.w_b1d * np.sin(self.w_b1d * self.t + self.theta_init), self.w_b1d * np.cos(self.w_b1d * self.t + self.theta_init), 0.])
+        # self.b1d_2dot = np.array([-self.w_b1d**2 * np.cos(self.w_b1d * self.t + self.theta_init), -self.w_b1d**2 * np.sin(self.w_b1d * self.t + self.theta_init), 0.])
 
 
     def takeoff(self):
@@ -405,8 +463,7 @@ class TrajectoryGenerator:
             self.eight_w2_3 = self.eight_w2**3
             self.eight_w2_4 = self.eight_w2**4
 
-            # b1_init = self.R.dot(self.e1)
-            # theta_init = np.arctan2(b1_init[1], b1_init[0])
+            self.w_b1d = np.random.choice([-1, 1])*self.eight_w_b1d  # multiply by -1 or 1 for better exploration
 
         self.update_current_time()
 
@@ -454,7 +511,7 @@ class TrajectoryGenerator:
             # x2 commands
             self.xd[1] = self.eight_A1 * (cos(self.t * self.eight_w1) - 1.) + self.eight_shaped_center[1]
             self.vd[1] = self.eight_A1 * (self.eight_w1 * -sin(self.t * self.eight_w1))
- 
+            
             # z Commads
             self.xd[2] = self.eight_shaped_center[2]
             self.vd[2] = 0.
@@ -465,14 +522,13 @@ class TrajectoryGenerator:
             # self.xd_4dot[2] = self.eight_alt_d *  self.eight_R_z**4 * -np.exp(-self.eight_R_z*self.t)
 
             # yaw-axis:
-            w_b1d = self.eight_w_b1d
-            self.b1d = np.array([np.cos(w_b1d * self.t + self.theta_init), np.sin(w_b1d * self.t + self.theta_init), 0.])
-            self.b1d_dot = np.array([-w_b1d * np.sin(w_b1d * self.t + self.theta_init), w_b1d * np.cos(w_b1d * self.t + self.theta_init), 0.])
-            self.b1d_2dot = np.array([-w_b1d**2 * np.cos(w_b1d * self.t + self.theta_init), -w_b1d**2 * np.sin(w_b1d * self.t + self.theta_init), 0.])
+            self.b1d = np.array([np.cos(self.w_b1d * self.t + self.theta_init), np.sin(self.w_b1d * self.t + self.theta_init), 0.])
+            self.b1d_dot = np.array([-self.w_b1d * np.sin(self.w_b1d * self.t + self.theta_init), self.w_b1d * np.cos(self.w_b1d * self.t + self.theta_init), 0.])
+            self.b1d_2dot = np.array([-self.w_b1d**2 * np.cos(self.w_b1d * self.t + self.theta_init), -self.w_b1d**2 * np.sin(self.w_b1d * self.t + self.theta_init), 0.])
             '''
-            self.b1d = np.array([np.cos(w_b1d * self.t), np.sin(w_b1d * self.t), 0.])
-            self.b1d_dot = np.array([-w_b1d * np.sin(w_b1d * self.t), w_b1d * np.cos(w_b1d * self.t), 0.])
-            self.b1d_2dot = np.array([-w_b1d * w_b1d * np.cos(w_b1d * self.t), w_b1d * -w_b1d * np.sin(w_b1d * self.t), 0.])
+            self.b1d = np.array([np.cos(self.w_b1d * self.t), np.sin(self.w_b1d * self.t), 0.])
+            self.b1d_dot = np.array([-self.w_b1d * np.sin(self.w_b1d * self.t), self.w_b1d * np.cos(self.w_b1d * self.t), 0.])
+            self.b1d_2dot = np.array([-self.w_b1d * self.w_b1d * np.cos(self.w_b1d * self.t), self.w_b1d * -self.w_b1d * np.sin(self.w_b1d * self.t), 0.])
             '''
             '''
             self.b1d = np.array([1.,0.,0.]) 

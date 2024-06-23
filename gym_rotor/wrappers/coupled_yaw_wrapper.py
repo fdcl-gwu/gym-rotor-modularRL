@@ -70,7 +70,7 @@ class CoupledWrapper(QuadEnv):
 
         # Monolithic agent's obs:
         """
-        norm_obs = (ex_norm, eIx_norm, ev_norm, R_vec, eb1_norm, eIb1_norm, eW_norm, eb1_dot)
+        norm_obs = (ex_norm, eIx_norm, ev_norm, R_vec, eb1_norm, eIb1_norm, eW_norm)
         """
         obs = self.get_norm_error_state(self.framework)
 
@@ -79,7 +79,7 @@ class CoupledWrapper(QuadEnv):
 
     def reward_wrapper(self, obs):
         # Single-agent's obs:
-        ex_norm, eIx_norm, ev_norm, _, eb1_norm, eIb1_norm, eW_norm, eb1_dot = obs_decomposition(obs[0]) 
+        ex_norm, eIx_norm, ev_norm, _, eb1_norm, eIb1_norm, eW_norm = obs_decomposition(obs[0]) 
 
         # Single-agent's reward:
         reward_eX   = -self.Cx*(norm(ex_norm, 2)**2) 
@@ -88,16 +88,15 @@ class CoupledWrapper(QuadEnv):
         reward_eb1  = -self.Cb1*abs(eb1_norm)
         reward_eIb1 = -self.CIb1*abs(eIb1_norm)
         reward_eW   = -self.CW*(norm(eW_norm, 2)**2)
-        reward_eb1_dot = -self.Cb1_dot*(abs(eb1_dot))
         
-        rwd = reward_eX + reward_eIX + reward_eV + reward_eb1 + reward_eIb1 + reward_eW + reward_eb1_dot
+        rwd = reward_eX + reward_eIX + reward_eV + reward_eb1 + reward_eIb1 + reward_eW
         
         return [rwd]
 
 
     def done_wrapper(self, obs):
         # Single-agent's obs:
-        ex_norm, eIx_norm, ev_norm, _, eb1_norm, eIb1_norm, eW_norm, eb1_dot = obs_decomposition(obs[0]) 
+        ex_norm, eIx_norm, ev_norm, _, eb1_norm, eIb1_norm, eW_norm = obs_decomposition(obs[0]) 
 
         # Single-agent's terminal states:
         done = False

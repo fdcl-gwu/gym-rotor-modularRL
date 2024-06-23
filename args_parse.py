@@ -12,9 +12,9 @@ def create_parser():
     # args of environment:
     parser.add_argument('--framework', default="CTDE", help='Name of framework: SARL, DTDE, or CTDE ')
     parser.add_argument('--max_steps', default=2000, type=int, help='Maximum number of steps in each episode (default: 2000)')
-    parser.add_argument('--max_timesteps', default=int(3e6), type=int, help='Number of total timesteps (default: 7e6)')
-    parser.add_argument("--num_eval", type=float, default=5, help="Number of episodes to evaluate our trained model")
-    parser.add_argument("--eval_freq", default=5e3, type=int, help='How often (time steps) evaluate our trained model (default: 1e4)')       
+    parser.add_argument('--max_timesteps', default=int(2e6), type=int, help='Number of total timesteps (default: 7e6)')
+    parser.add_argument("--num_eval", type=float, default=10, help="Number of episodes to evaluate our trained model")
+    parser.add_argument("--eval_freq", default=2e3, type=int, help='How often (time steps) evaluate our trained model (default: 1e4)')       
     parser.add_argument('--eval_max_steps', default=10, type=int, help='[sec] Maximum number of steps in each episode for evaluation (default: 5)')
     # Coefficients in reward function:
     # Agent1's reward:
@@ -26,7 +26,6 @@ def create_parser():
     # Agent2's reward:
     parser.add_argument('--Cb1', default=7.0, type=float, metavar='G', help='Heading coeff. (default: )')
     parser.add_argument('--CIb1', default=0.1, type=float, metavar='G', help='Heading integral coeff. (default: )')
-    parser.add_argument('--Cb1_dot', default=0.15, type=float, metavar='G', help='Heading angular velocity coeff. (default: )')
     parser.add_argument('--CW3', default=0.25, type=float, metavar='G', help='Angular velocity coeff. (default: )')
     parser.add_argument('--beta', default=0.05, type=float, metavar='G', help='Heading integral terms. (default: )')
     # Domain randomization: 
@@ -37,7 +36,7 @@ def create_parser():
     parser.add_argument("--start_timesteps", default=int(3e5), type=int, help='Number of steps for uniform-random action selection (default: int(5e5))')
     parser.add_argument("--actor_hidden_dim", default=[16, 8], type=int, help='Number of nodes in hidden layers of actor net (default: 64)')
     parser.add_argument("--critic_hidden_dim", default=512, type=int, help='Number of nodes in hidden layers of critic net (default: 256)')
-    parser.add_argument("--lr_a", default=[3e-4, 3e-4], type=float, help="Learning rate of actor, alpha (default: 1e-5)")
+    parser.add_argument("--lr_a", default=[3e-4, 9e-5], type=float, help="Learning rate of actor, alpha (default: 1e-5)")
     parser.add_argument("--lr_c", default=[3e-4, 3e-4], type=float, help="Learning rate of critic, alpha (default: 1e-5)")
     parser.add_argument('--discount', default=0.99, type=float, metavar='G', help='discount factor, discount (default: 0.99)')
     parser.add_argument("--max_action", default=1., type=float, help="Max action")

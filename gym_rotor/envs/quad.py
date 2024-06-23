@@ -78,15 +78,14 @@ class QuadEnv(gym.Env):
         self.Cb1 = args.Cb1
         self.CIb1 = args.CIb1
         self.CW = args.Cw12
-        self.Cb1_dot = args.Cb1_dot
-        self.reward_min = -np.ceil(self.Cx+self.CIx+self.Cv+self.Cb1+self.CIb1+self.CW+self.Cb1_dot)
+        self.reward_min = -np.ceil(self.Cx+self.CIx+self.Cv+self.Cb1+self.CIb1+self.CW)
         if self.framework in ("CTDE","DTDE"):
             # Agent1's reward:
             self.Cw12 = args.Cw12
             self.reward_min_1 = -np.ceil(self.Cx+self.CIx+self.Cv+self.Cw12)
             # Agent2's reward:
             self.CW3 = args.CW3
-            self.reward_min_2 = -np.ceil(self.Cb1+self.CW3+self.CIb1+self.Cb1_dot)
+            self.reward_min_2 = -np.ceil(self.Cb1+self.CW3+self.CIb1)
         
         # Integral terms:
         self.sat_sigma = 1.
@@ -344,22 +343,19 @@ class QuadEnv(gym.Env):
             # Spawning at the origin position and at zero angle (w/ random linear and angular velocity).
             if random.random() < 0.2: # 20% of the training
                 self.init_x = 0.0 # initial pos error,[m]
-                self.init_R = 0 * self.D2R  # ±0 deg 
                 self.init_v = 0. # initial vel error, [m/s]
+                self.init_R = 0 * self.D2R  # ±0 deg 
                 self.init_W = 0. # initial ang vel error, [rad/s]
-                # self.yaw = 0.
             else:
-                self.init_x = 0.5 # initial pos error,[m]
-                self.init_R = 50 * self.D2R  # ±50 deg 
+                self.init_x = 0.6 # initial pos error,[m]
                 self.init_v = self.v_lim*0.5 # 50%; initial vel error, [m/s]
+                self.init_R = 50 * self.D2R  # ±50 deg 
                 self.init_W = self.W_lim*0.5 # 50%; initial ang vel error, [rad/s]
-                # self.yaw = uniform(size=1,low=-pi, high=pi)
         elif env_type == 'eval':
-            self.init_x = 0.3 # initial pos error,[m]
+            self.init_x = 0.4 # initial pos error,[m]
             self.init_v = self.v_lim*0.05 # initial vel error, [m/s]
             self.init_R = 5 * self.D2R # ±5 deg
             self.init_W = self.W_lim*0.05 # initial ang vel error, [rad/s]
-            # self.yaw = uniform(size=1,low=-pi/4, high=pi/4) 
 
 
     def set_random_parameters(self, env_type='train'):
@@ -438,25 +434,17 @@ class QuadEnv(gym.Env):
         ex_norm = x_norm - xd_norm # norm pos error
         ev_norm = v_norm - vd_norm # norm vel error
         eW_norm = W_norm - Wd_norm # norm ang vel error
+        eW3_norm = W_norm[2] - Wd_norm[2]
 
         # Compute yaw angle error: 
         b1, b2, b3 = R@self.e1, R@self.e2, R@self.e3
+        '''
         b1c = -(hat(b3) @ hat(b3)) @ self.b1d # desired b1
         eb1_norm = norm_ang_btw_two_vectors(b1c, b1) # b1 error, [-1, 1)
-        #################################################################
-        W = self.state[15:18]
-        b3_dot = R @ hat(W) @ self.e3
-
+        '''
         b1c = self.b1d - np.dot(self.b1d, b3) * b3
-        b1c_dot = self.b1d_dot - (np.dot(self.b1d_dot, b3) * b3 + np.dot(self.b1d, b3_dot) * b3 + np.dot(self.b1d, b3) * b3_dot)
-        omega_c = np.cross(b1c_dot, b1c)
-
         eb1 = np.arctan2(np.dot(-b1c, b2), np.dot(b1c, b1))
         eb1_norm = eb1/np.pi
-        eb1_dot = W[2] - omega_c[2]
-        # print(eb1_norm, eb1_dot)
-        # TODO: eb1_dot_norm
-        #################################################################
         
         # Update integral terms: 
         self.eIx.integrate(-self.alpha*self.eIx.error + ex_norm*self.x_lim, self.dt) 
@@ -469,13 +457,15 @@ class QuadEnv(gym.Env):
             ew12_norm = eW_norm[0]*b1 + eW_norm[1]*b2
             obs_1 = np.concatenate((ex_norm, self.eIx_norm, ev_norm, b3, ew12_norm), axis=None, dtype=np.float32)
             # Agent2's obs:
+            '''
             eW3_norm = eW_norm[2]
-            obs_2 = np.concatenate((b1, eb1_norm, self.eIb1_norm, eW3_norm, eb1_dot), axis=None, dtype=np.float32)
+            '''
+            obs_2 = np.concatenate((b1, eb1_norm, self.eIb1_norm, eW3_norm), axis=None, dtype=np.float32)
             error_obs_n = [obs_1, obs_2]
         elif framework == "SARL":
             # Single-agent's obs:
             R_vec = R.reshape(9, 1, order='F').flatten()
-            obs = np.concatenate((ex_norm, self.eIx_norm, ev_norm, R_vec, eb1_norm, self.eIb1_norm, eW_norm, eb1_dot), axis=None, dtype=np.float32)
+            obs = np.concatenate((ex_norm, self.eIx_norm, ev_norm, R_vec, eb1_norm, self.eIb1_norm, eW_norm), axis=None, dtype=np.float32)
             error_obs_n = [obs]
         
         return error_obs_n
