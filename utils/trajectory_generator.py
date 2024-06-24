@@ -153,12 +153,10 @@ class TrajectoryGenerator:
         if self.mode == 0:  # idle and warm-up
             if self.init_b1d == True:
                 self.set_desired_states_to_zero()
-                """
                 b1d_temp = self.get_current_b1()
                 theta_b1d = np.random.uniform(size=1,low=-25*self.D2R, high=25*self.D2R) 
                 self.b1d = self.R_e3(theta_b1d) @ b1d_temp 
                 # print(theta_b1d, b1d_temp, self.b1d)
-                """
                 self.init_b1d = False
         elif self.mode == 1:  # hovering
             self.hovering()
@@ -176,12 +174,12 @@ class TrajectoryGenerator:
 
         #############################################################
         # Compute Wd:
-        b1, b3 = self.R@self.e1, self.R@self.e3
+        b3 = self.R@self.e3
         b3_dot = self.R @ hat(self.W) @ self.e3
 
         b1c = self.b1d - np.dot(self.b1d, b3) * b3
         b1c_dot = self.b1d_dot - (np.dot(self.b1d_dot, b3) * b3 + np.dot(self.b1d, b3_dot) * b3 + np.dot(self.b1d, b3) * b3_dot)
-        omega_c = np.cross(b1c_dot, b1c)
+        omega_c = np.cross(b1c, b1c_dot)
         omega_c_3 = b3@omega_c
         self.Wd = np.array([0., 0., omega_c_3])
         #############################################################
@@ -269,7 +267,8 @@ class TrajectoryGenerator:
             self.trajectory_started = True
 
             self.x_init = np.copy(self.x)  # initial position [x0, y0, z0]
-            self.t_traj = 2.0  # [sec] time to reach the origin
+            # self.t_traj = 2.0  # [sec] time to reach the origin
+            self.t_traj = np.squeeze(np.random.uniform(size=1,low=1., high=2.)) # [sec] time to reach the origin
             
             # Compute the coefficients for the quintic polynomial
             self.coefficients = np.zeros((3, 6))
@@ -282,8 +281,9 @@ class TrajectoryGenerator:
                                            15 * x0 / (self.t_traj**4), 
                                            -6 * x0 / (self.t_traj**5)]
 
-            w_b1d = np.random.uniform(size=1,low=-0.2*np.pi, high=0.2*np.pi) # [rad/sec]  #TODO: maybe I should fix this
-            self.w_b1d = np.squeeze(w_b1d)  # random yaw rate
+            # w_b1d = 0.1*np.pi# np.squeeze(np.random.uniform(size=1,low=-0.2*np.pi, high=0.2*np.pi)) # [rad/sec] random yaw rate
+            # self.w_b1d = np.random.choice([-1, 1])*w_b1d  # multiply by -1 or 1 for better exploration
+            self.w_b1d = np.squeeze(np.random.uniform(size=1,low=-0.25*np.pi, high=0.25*np.pi)) # [rad/sec] random yaw rate
 
         self.update_current_time()
 

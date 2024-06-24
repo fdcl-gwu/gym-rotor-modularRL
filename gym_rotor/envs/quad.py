@@ -353,9 +353,9 @@ class QuadEnv(gym.Env):
                 self.init_W = self.W_lim*0.5 # 50%; initial ang vel error, [rad/s]
         elif env_type == 'eval':
             self.init_x = 0.4 # initial pos error,[m]
-            self.init_v = self.v_lim*0.05 # initial vel error, [m/s]
-            self.init_R = 5 * self.D2R # ±5 deg
-            self.init_W = self.W_lim*0.05 # initial ang vel error, [rad/s]
+            self.init_v = self.v_lim*0.0 # initial vel error, [m/s]
+            self.init_R = 0 * self.D2R # ±5 deg
+            self.init_W = self.W_lim*0.0 # initial ang vel error, [rad/s]
 
 
     def set_random_parameters(self, env_type='train'):

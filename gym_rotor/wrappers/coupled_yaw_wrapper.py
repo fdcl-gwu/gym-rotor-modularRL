@@ -21,7 +21,7 @@ class CoupledWrapper(QuadEnv):
 
         # limits of states:
         self.eIx_lim  = 3.0 
-        self.eIb1_lim = 3.0 
+        self.eIb1_lim = 6.0 
 
 
     def reset(self, 
@@ -86,7 +86,7 @@ class CoupledWrapper(QuadEnv):
         reward_eIX  = -self.CIx*(norm(eIx_norm, 2)**2)
         reward_eV   = -self.Cv*(norm(ev_norm, 2)**2)
         reward_eb1  = -self.Cb1*abs(eb1_norm)
-        reward_eIb1 = -self.CIb1*abs(eIb1_norm)
+        reward_eIb1 = -self.CIb1*(abs(eIb1_norm)**2)
         reward_eW   = -self.CW*(norm(eW_norm, 2)**2)
         
         rwd = reward_eX + reward_eIX + reward_eV + reward_eb1 + reward_eIb1 + reward_eW

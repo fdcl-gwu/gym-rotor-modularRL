@@ -22,7 +22,7 @@ class DecoupledWrapper(QuadEnv):
 
         # limits of states:
         self.eIx_lim  = 3.0 
-        self.eIb1_lim = 3.0 
+        self.eIb1_lim = 6.0 
 
 
     def reset(self, 
@@ -107,8 +107,8 @@ class DecoupledWrapper(QuadEnv):
 
         # Agent2's reward:
         reward_eb1  = -self.Cb1*abs(eb1_norm)
-        reward_eIb1 = -self.CIb1*abs(eIb1_norm)
-        reward_eW3  = -self.CW3*(abs(eW3_norm))
+        reward_eIb1 = -self.CIb1*(abs(eIb1_norm)**2)
+        reward_eW3  = -self.CW3*(abs(eW3_norm)**2)
 
         rwd_2 = reward_eb1 + reward_eIb1 + reward_eW3
 

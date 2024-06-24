@@ -5,6 +5,8 @@ import torch
 import numpy as np
 import gymnasium as gym
 from datetime import datetime
+os.environ["CUDA_VISIBLE_DEVICES"] = "MIG-d339e01a-f358-5637-80a3-97686f471a4f"
+torch.set_num_threads(1)
 
 import gym_rotor
 from gym_rotor.envs.quad_utils import *
@@ -263,7 +265,7 @@ class Learner:
             success, eval_reward = [False], [0.]
         benchmark_reward = 0. # Reward for benchmark
 
-        print("---------------------------------------------------------------------------------------------------------------------")
+        print("--------------------------------------------------------------------------------------------------------------------------------")
         for num_eval in range(self.args.num_eval):
             # Set mode for generating trajectories:
             mode = self.mode  #TODO: set eval mode to 8
@@ -328,10 +330,10 @@ class Learner:
                     print(f"eval_iter: {num_eval+1}, time_stpes: {episode_timesteps}, episode_reward: {episode_reward}, episode_benchmark_reward: {episode_benchmark_reward:.3f}, ex: {ex}, eb1: {eb1:.3f}")
                     if episode_timesteps == self.eval_max_steps:
                         if self.framework in ("CTDE","DTDE"):
-                            success[0] = True if (abs(ex) <= 0.02).all() else False
-                            success[1] = True if abs(eb1) <= 0.02 else False
+                            success[0] = True if (abs(ex) <= 0.01).all() else False
+                            success[1] = True if abs(eb1) <= 0.01 else False
                         elif self.framework == "SARL":
-                            success[0] = True if (abs(ex) <= 0.02).all() else False
+                            success[0] = True if (abs(ex) <= 0.01).all() else False
                     success_count.append(success)
                     break
                 obs_n = obs_next_n
@@ -372,12 +374,12 @@ if __name__ == '__main__':
     args = parser.parse_args()
 
     # Show information:
-    print("---------------------------------------------------------------------------------------------------------------------")
+    print("--------------------------------------------------------------------------------------------------------------------------------")
     print("Framework:", args.framework, "| Seed:", args.seed, "| Batch size:", args.batch_size)
     print("gamma:", args.discount, "| lr_a:", args.lr_a, "| lr_c:", args.lr_c, 
           "| Actor hidden dim:", args.actor_hidden_dim, 
           "| Critic hidden dim:", args.critic_hidden_dim)
-    print("---------------------------------------------------------------------------------------------------------------------")
+    print("--------------------------------------------------------------------------------------------------------------------------------")
 
     learner = Learner(args)
     learner.train_policy()
