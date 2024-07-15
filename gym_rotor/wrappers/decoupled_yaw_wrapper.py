@@ -22,7 +22,7 @@ class DecoupledWrapper(QuadEnv):
 
         # limits of states:
         self.eIx_lim  = 3.0 
-        self.eIb1_lim = 6.0 
+        self.eIb1_lim = 3.0 
 
 
     def reset(self, 

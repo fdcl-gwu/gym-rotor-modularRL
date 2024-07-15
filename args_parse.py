@@ -2,7 +2,7 @@ import argparse
 
 # Hyperparameters:
 def create_parser():
-    parser = argparse.ArgumentParser(description='Multi-agents Reinforcement Learning for Quadrotor UAV Control')
+    parser = argparse.ArgumentParser(description='Modular Reinforcement Learning for Quadrotor UAV Control')
     parser.add_argument('--seed', default=789, type=int, metavar='N', help='Random seed of Gym, PyTorch and Numpy (default: 1234)') 
     parser.add_argument("--save_model", default=True, action="store_true", help='Save models and optimizer parameters (default: True)')
     parser.add_argument("--test_model", default=False, type=bool, help='Load and test trained models (default: False)')  
@@ -12,19 +12,19 @@ def create_parser():
     # args of environment:
     parser.add_argument('--framework', default="CTDE", help='Name of framework: SARL, DTDE, or CTDE ')
     parser.add_argument('--max_steps', default=4000, type=int, help='Maximum number of steps in each episode (default: 2000)')
-    parser.add_argument('--max_timesteps', default=int(2e6), type=int, help='Number of total timesteps (default: 7e6)')
-    parser.add_argument("--num_eval", type=float, default=5, help="Number of episodes to evaluate our trained model")
-    parser.add_argument("--eval_freq", default=1e3, type=int, help='How often (time steps) evaluate our trained model (default: 1e4)')       
+    parser.add_argument('--max_timesteps', default=int(3e6), type=int, help='Number of total timesteps (default: 7e6)')
+    parser.add_argument("--num_eval", type=float, default=10, help="Number of episodes to evaluate our trained model")
+    parser.add_argument("--eval_freq", default=2e3, type=int, help='How often (time steps) evaluate our trained model (default: 1e4)')       
     parser.add_argument('--eval_max_steps', default=5, type=int, help='[sec] Maximum number of steps in each episode for evaluation (default: 5)')
     # Coefficients in reward function:
     # Agent1's reward:
-    parser.add_argument('--Cx', default=7.0, type=float, metavar='G', help='Position coeff. (default: )')
+    parser.add_argument('--Cx', default=6.0, type=float, metavar='G', help='Position coeff. (default: )')
     parser.add_argument('--CIx', default=0.1, type=float, metavar='G', help='Position integral coeff. (default: )')
     parser.add_argument('--Cv', default=0.4, type=float, metavar='G', help='Velocity coeff. (default: )')
-    parser.add_argument('--Cw12', default=0.05, type=float, metavar='G', help='Angular velocity coeff. (default: )')
+    parser.add_argument('--Cw12', default=0.6, type=float, metavar='G', help='Angular velocity coeff. (default: )')
     parser.add_argument('--alpha', default=0.01, type=float, metavar='G', help='Position integral terms. (default: )')
     # Agent2's reward:
-    parser.add_argument('--Cb1', default=7.0, type=float, metavar='G', help='Heading coeff. (default: )')
+    parser.add_argument('--Cb1', default=6.0, type=float, metavar='G', help='Heading coeff. (default: )')
     parser.add_argument('--CIb1', default=0.1, type=float, metavar='G', help='Heading integral coeff. (default: )')
     parser.add_argument('--CW3', default=0.1, type=float, metavar='G', help='Angular velocity coeff. (default: )')
     parser.add_argument('--beta', default=0.05, type=float, metavar='G', help='Heading integral terms. (default: )')

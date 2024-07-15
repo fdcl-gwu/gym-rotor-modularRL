@@ -5,8 +5,6 @@ import torch
 import numpy as np
 import gymnasium as gym
 from datetime import datetime
-os.environ["CUDA_VISIBLE_DEVICES"] = "MIG-d339e01a-f358-5637-80a3-97686f471a4f"
-torch.set_num_threads(1)
 
 import gym_rotor
 from gym_rotor.envs.quad_utils import *
@@ -30,9 +28,9 @@ class Learner:
         self.framework = self.args.framework
         if self.framework in ("CTDE","DTDE"):
             """----------------------------------------------------------------------------------------------
-            | Agents  | Observations            | obs_dim | Actions:       | act_dim | Rewards              |
-            | #agent1 | {ex, ev, b3, ew12, eIx} | 15      | {f_total, tau} | 4       | f(ex, eIx, ev, ew12) |
-            | #agent2 | {b1, eW3, eb1, eIb1}    | 6       | {M3}           | 1       | f(eb1, eIb1, eW3)    |
+            | Agents   | Observations            | obs_dim | Actions        | act_dim | Rewards              |
+            | module#1 | {ex, ev, b3, ew12, eIx} | 15      | {f_total, tau} | 4       | f(ex, eIx, ev, ew12) |
+            | module#2 | {b1, eW3, eb1, eIb1}    | 6       | {M3}           | 1       | f(eb1, eIb1, eW3)    |
             ----------------------------------------------------------------------------------------------"""
             self.env = DecoupledWrapper()
             self.args.N = 2  # num of agents
@@ -40,8 +38,8 @@ class Learner:
             self.args.action_dim_n = [4, 1]
         elif self.framework == "SARL":
             """-------------------------------------------------------------------------------------------------------------
-            | Agents  | Observations                    | obs_dim | Actions:     | act_dim | Rewards                       |
-            | #agent1 | {ex, ev, R, eW, eIx, eb1, eIb1} | 23      | {f_total, M} | 4       | f(ex, eIx, ev, eb1, eIb1, eW) |
+            | Agents  | Observations                    | obs_dim | Actions      | act_dim | Rewards                       |
+            | single  | {ex, ev, R, eW, eIx, eb1, eIb1} | 23      | {f_total, M} | 4       | f(ex, eIx, ev, eb1, eIb1, eW) |
             -------------------------------------------------------------------------------------------------------------"""
             self.env = CoupledWrapper()
             self.args.N = 1  # num of agents
@@ -67,7 +65,7 @@ class Learner:
         self.trajectory_generator = TrajectoryGenerator(self.env)  
         # self.trajectory_generator.mark_traj_start() # reset trajectories
         self.curriculum_interval = (400_000, 500_000, 700_000, 900_000, 1_100_000)  # interval for curriculum learning
-        self.mode = 1  # set mode for generating curtain trajectories 
+        self.mode = 0  # set mode for generating curtain trajectories 
 
         # Initialize N agents:
         if self.framework == "CTDE":
@@ -80,11 +78,11 @@ class Learner:
         
         # Load trained models for evaluation:
         if self.args.test_model:
-            if self.framework == "CTDE":
-                total_steps, agent_id = 380_000, 0  # edit 'total_steps' accordingly
-                # self.agent_n[agent_id].load(self.framework, total_steps, agent_id, self.seed)  # test best models
-                self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)  # test solved models
-                total_steps, agent_id = 370_000, 1  # edit 'total_steps' accordingly
+            if self.framework == "CTDE": # 588_000, 557_000
+                total_steps, agent_id = 588_000, 0  # edit 'total_steps' accordingly
+                self.agent_n[agent_id].load(self.framework, total_steps, agent_id, self.seed)  # test best models
+                # self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)  # test solved models
+                total_steps, agent_id = 557_000, 1  # edit 'total_steps' accordingly
                 self.agent_n[agent_id].load(self.framework, total_steps, agent_id, self.seed)  # test best models 
                 # self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)  # test solved models
             if self.framework == "DTDE":
@@ -94,8 +92,9 @@ class Learner:
                 total_steps, agent_id = 1480_000, 1  # edit 'total_steps' accordingly
                 # self.agent_n[agent_id].load(self.framework, total_steps, agent_id, self.seed)
                 self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)
-            elif self.framework == "SARL": # 1270_000
-                total_steps, agent_id = 1270_000, 0  # edit 'total_steps' accordingly
+            elif self.framework == "SARL":
+                # total_steps, agent_id = 615_000, 0  # edit 'total_steps' accordingly
+                total_steps, agent_id = 1981_000, 0  # edit 'total_steps' accordingly
                 self.agent_n[agent_id].load(self.framework, total_steps, agent_id, self.seed)
                 # self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)
 
@@ -323,7 +322,11 @@ class Learner:
                 if self.args.save_log:
                     act_list.append(action)
                     obs_list.append(np.concatenate((state, eIx, eb1, eIb1), axis=None))
-                    cmd_list.append(np.concatenate((xd, vd, b1d, Wd), axis=None))
+                    # Compute b1c
+                    R = state[6:15].reshape(3,3,order='F')
+                    b3 = R@np.array([0.,0.,1.])
+                    b1c = b1d - np.dot(b1d, b3) * b3
+                    cmd_list.append(np.concatenate((xd, vd, b1c, Wd), axis=None))
 
                 # Episode termination:
                 if any(done_n) or episode_timesteps == self.eval_max_steps:

@@ -376,8 +376,8 @@ class QuadEnv(gym.Env):
             d_range = self.d * uncertainty_range
             J1_range = J1 * uncertainty_range
             J3_range = J3 * uncertainty_range
-            # c_tf_range = self.c_tf * uncertainty_range
-            # c_tw_range = self.c_tw * uncertainty_range
+            c_tf_range = self.c_tf * uncertainty_range
+            c_tw_range = self.c_tw * (uncertainty_range/2.) # smaller range for thrust-to-weight coefficients
 
             self.m = uniform(low=(self.m - m_range), high=(self.m + m_range)) # [kg]
             self.d = uniform(low=(self.d - d_range), high=(self.d + d_range)) # [m]
@@ -385,8 +385,8 @@ class QuadEnv(gym.Env):
             J2 = J1 
             J3 = uniform(low=(J3 - J3_range), high=(J3 + J3_range))
             self.J  = np.diag([J1, J2, J3]) # [kg m2]
-            # self.c_tf = uniform(low=(self.c_tf - c_tf_range), high=(self.c_tf + c_tf_range))
-            # self.c_tw = uniform(low=(self.c_tw - c_tw_range), high=(self.c_tw + c_tw_range))
+            self.c_tf = uniform(low=(self.c_tf - c_tf_range), high=(self.c_tf + c_tf_range))
+            self.c_tw = uniform(low=(self.c_tw - c_tw_range), high=(self.c_tw + c_tw_range))
                         
         # Force and Moment:
         self.f = self.m * self.g # magnitude of total thrust to overcome  
@@ -443,7 +443,7 @@ class QuadEnv(gym.Env):
         eb1_norm = norm_ang_btw_two_vectors(b1c, b1) # b1 error, [-1, 1)
         '''
         b1c = self.b1d - np.dot(self.b1d, b3) * b3
-        eb1 = np.arctan2(np.dot(-b1c, b2), np.dot(b1c, b1))
+        eb1 = np.arctan2(-np.dot(b1c, b2), np.dot(b1c, b1))
         eb1_norm = eb1/np.pi
         
         # Update integral terms: 
@@ -502,7 +502,7 @@ class QuadEnv(gym.Env):
             # Canvas.
             self.viewer = canvas(title='Quadrotor with RL', width=self.screen_width, height=self.screen_height, \
                                  center=vector(0, 0, cmd_pos[2]), background=color.white, \
-                                 forward=vector(0.2, 0.2, 1.0), up=vector(0, 0, -1), range=2.0) # forward = view point
+                                 forward=vector(1.4, 0., 1.0), up=vector(0, 0, -1), range=1.7) # forward = view point
             
             # Quad body.
             self.render_quad1 = box(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
@@ -548,12 +548,12 @@ class QuadEnv(gym.Env):
                                      shaftwidth=0.012, color=color.red, round=True)							
             
             # Inertial axis.				
-            self.e1_axis = arrow(pos=vector(2.5, -2.5, 0), axis=0.5*vector(1, 0, 0), \
-                                 shaftwidth=0.03, color=color.red)
-            self.e2_axis = arrow(pos=vector(2.5, -2.5, 0), axis=0.5*vector(0, 1, 0), \
-                                 shaftwidth=0.03, color=color.green)
-            self.e3_axis = arrow(pos=vector(2.5, -2.5, 0), axis=0.5*vector(0, 0, 1), \
-                                 shaftwidth=0.03, color=color.blue)
+            self.e1_axis = arrow(pos=vector(1.25, -2.25, 0), axis=0.4*vector(1, 0, 0), \
+                                 shaftwidth=0.02, color=color.red)
+            self.e2_axis = arrow(pos=vector(1.25, -2.25, 0), axis=0.4*vector(0, 1, 0), \
+                                 shaftwidth=0.02, color=color.green)
+            self.e3_axis = arrow(pos=vector(1.25, -2.25, 0), axis=0.4*vector(0, 0, 1), \
+                                 shaftwidth=0.02, color=color.blue)
 
             # Body axis.				
             self.render_b1_axis = arrow(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
@@ -569,7 +569,7 @@ class QuadEnv(gym.Env):
                                         shaftwidth=0.01, color=color.blue)
 
             # Floor.
-            self.render_floor = box(pos=vector(0,0,0),size=vector(3,7,0.05), axis=vector(1,0,0), \
+            self.render_floor = box(pos=vector(0,0,0),size=vector(2.5,4.5,0.05), axis=vector(1,0,0), \
                                     opacity=0.2, color=color.black)
         
             # Real-time graphing.

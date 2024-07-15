@@ -55,8 +55,8 @@ if args.framework in ("CTDE","DTDE"):
     tau = act[:, 1:4]
     b1, b2 = obs[:, 6:9], obs[:, 9:12]
     fM[0] = f_total
-    fM[1] = np.einsum('ij,ij->i', b1, tau) + env.J[2,2]*W3*W2 # M1
-    fM[2] = np.einsum('ij,ij->i', b2, tau) - env.J[2,2]*W3*W1 # M2
+    fM[1] = np.einsum('ij,ij->i', b1, tau) + env.J_nominal[2,2]*W3*W2 # M1
+    fM[2] = np.einsum('ij,ij->i', b2, tau) - env.J_nominal[2,2]*W3*W1 # M2
     fM[3] = act[:, 4] # M3
     
     # FM matrix to thrust of each motor:
@@ -128,7 +128,7 @@ axs[3].set_xlabel('Time [s]', size=fontsize)
 
 for i in range(4):
     axs[i].set_xlim([0., t[-1]])
-    axs[i].set_ylim([env.min_force-0.3, env.max_force+0.3])
+    # axs[i].set_ylim([env.min_force-0.3, env.max_force+0.3])
     axs[i].grid(True, color='white', linestyle='-', linewidth=1.0)
     axs[i].locator_params(axis='y', nbins=4)
 for label in (axs[0].get_xticklabels() + axs[0].get_yticklabels()):
@@ -227,20 +227,20 @@ if is_SAVE:
 #########################################################################
 fig, axs = plt.subplots(3, 3, figsize=(30, 12))
 
-axs[0, 0].plot(t, b1d1, 'tab:red', linewidth=3, label='$b_{1d_1}$')
+axs[0, 0].plot(t, b1d1, 'tab:red', linewidth=3, label='$b_{1c_1}$')
 axs[0, 0].plot(t, R11, linewidth=3, label='response')
 axs[0, 0].set_ylabel('$R_{11}$', size=fontsize)
 axs[0, 0].grid(True, color='white', linestyle='-', linewidth=1.0)
 axs[0, 0].legend(ncol=1, prop={'size': fontsize}, loc='best')
 # axs[0, 0].set_yticks(np.arange(0.97, 1.0, 0.01))
 
-axs[1, 0].plot(t, b1d2, 'tab:red', linewidth=3, label='$b_{1d_2}$')
+axs[1, 0].plot(t, b1d2, 'tab:red', linewidth=3, label='$b_{1c_2}$')
 axs[1, 0].plot(t, R21, linewidth=3)
 axs[1, 0].set_ylabel('$R_{21}$', size=fontsize)
 axs[1, 0].legend(ncol=1, prop={'size': fontsize}, loc='best')
 # axs[1, 0].set_title('$R_{21}$')
 
-axs[2, 0].plot(t, b1d3, 'tab:red', linewidth=3, label='$b_{1d_3}$')
+axs[2, 0].plot(t, b1d3, 'tab:red', linewidth=3, label='$b_{1c_3}$')
 axs[2, 0].plot(t, R31, linewidth=3)
 axs[2, 0].set_ylabel('$R_{31}$', size=fontsize)
 axs[2, 0].set_xlabel('Time [s]', size=fontsize)
