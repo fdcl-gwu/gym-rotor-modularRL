@@ -94,17 +94,20 @@ class TrajectoryGenerator:
         self.circle_W = 0.4
         
         # Eight-shaped curve:
-        self.num_of_eights = 5
-        self.eight_A1 = 1.0
-        self.eight_A2 = 0.5
-        self.eight_T = 15. # the period of the cycle [sec]
+        self.num_of_eights = 3
+        self.eight_A1 = 1.5
+        self.eight_A2 = 1.0
+        self.eight_T = 8.5 # the period of the cycle [sec]
         self.eight_w1 = 2*np.pi/self.eight_T # w = 2*pi*t/self.t_origin 
         self.eight_w2 = 4*np.pi/self.eight_T
         self.eight_w_b1d = 0.01*np.pi # [rad/sec]
-        self.eight_alt_d = -0.3
-        self.eight_R_z = 0.1
-        self.eight_R_xy = -np.log(0.001) / self.eight_T # smooth one period
-        # self.eight_R_xy = -np.log(0.001) / (2+self.eight_T) # Two times of the period
+        
+        # Exponential smoothing factor:
+        epsilon = 0.01 # determines the degree of smoothing for the exponential term
+        self.eight_exp_xy = -np.log(epsilon) / self.eight_T # smooth one period
+        # self.eight_exp_xy = -np.log(epsilon) / (2*self.eight_T) # Two times of the period
+        # self.eight_alt_d = -0.3  # [m] desired altitude
+        # self.eight_exp_z = 0.1
 
     
     def get_desired(self, state, mode):
@@ -439,9 +442,9 @@ class TrajectoryGenerator:
             self.eight_shaped_center = np.copy(self.x)
             self.t_traj = self.num_of_eights * self.eight_T
 
-            self.eight_R_xy_2 = self.eight_R_xy**2
-            self.eight_R_xy_3 = self.eight_R_xy**3
-            self.eight_R_xy_4 = self.eight_R_xy**4
+            self.eight_R_xy_2 = self.eight_exp_xy**2
+            self.eight_R_xy_3 = self.eight_exp_xy**3
+            self.eight_R_xy_4 = self.eight_exp_xy**4
             
             self.eight_w1_2 = self.eight_w1**2
             self.eight_w1_3 = self.eight_w1**3
@@ -457,27 +460,27 @@ class TrajectoryGenerator:
 
         if self.t < self.t_traj:
             # Smooth xy trajectory:
-            exp_term = 1. - np.exp(-self.eight_R_xy * self.t)
-            exp_term_2 = self.eight_R_xy * np.exp(-self.eight_R_xy*self.t)
-            
+            exp_term = 1. - np.exp(-self.eight_exp_xy * self.t)
+            d_dt_exp_term = self.eight_exp_xy * np.exp(-self.eight_exp_xy*self.t)
+
             # # x1 commands
             # self.xd[0] = self.eight_A1 * (cos(self.eight_w1*self.t) - 1.) * exp_term + self.eight_shaped_center[0]
             # self.vd[0] = self.eight_A1 * ((self.eight_w1 * -sin(self.eight_w1*self.t) * exp_term) \
-            #                               + (cos(self.eight_w1*self.t) - 1.) * exp_term_2)
+            #                               + (cos(self.eight_w1*self.t) - 1.) * d_dt_exp_term)
 
             # # x2 commands
             # self.xd[1] = self.eight_A2 * (sin(self.eight_w2*self.t) * exp_term) + self.eight_shaped_center[1]
             # self.vd[1] = self.eight_A2 * ((self.eight_w2 * cos(self.eight_w2*self.t) * exp_term) \
-            #                               + (sin(self.eight_w2*self.t) * exp_term_2))
+            #                               + (sin(self.eight_w2*self.t) * d_dt_exp_term))
             
             # x2 commands
             self.xd[0] = self.eight_A2 * (sin(self.eight_w2*self.t) * exp_term) + self.eight_shaped_center[0]
             self.vd[0] = self.eight_A2 * ((self.eight_w2 * cos(self.eight_w2*self.t) * exp_term) \
-                                          + (sin(self.eight_w2*self.t) * exp_term_2))
+                                          + (sin(self.eight_w2*self.t) * d_dt_exp_term))
             # x1 commands
             self.xd[1] = self.eight_A1 * (cos(self.eight_w1*self.t) - 1.) * exp_term + self.eight_shaped_center[1]
             self.vd[1] = self.eight_A1 * ((self.eight_w1 * -sin(self.eight_w1*self.t) * exp_term) \
-                                          + (cos(self.eight_w1*self.t) - 1.) * exp_term_2)
+                                          + (cos(self.eight_w1*self.t) - 1.) * d_dt_exp_term)
 
             """
             # x1 commands
@@ -491,13 +494,20 @@ class TrajectoryGenerator:
             # z commands
             self.xd[2] = self.eight_shaped_center[2]
             self.vd[2] = 0.
-            # self.xd[2] = self.eight_alt_d * (1. - np.exp(-self.eight_R_z * self.t)) + self.eight_shaped_center[2]
-            # self.vd[2] = self.eight_alt_d * -self.eight_R_z * -np.exp(-self.eight_R_z * self.t)
+            # self.xd[2] = self.eight_alt_d * (1. - np.exp(-self.eight_exp_z * self.t)) + self.eight_shaped_center[2]
+            # self.vd[2] = self.eight_alt_d * -self.eight_exp_z * -np.exp(-self.eight_exp_z * self.t)
 
             # yaw-axis:
-            self.b1d = np.array([np.cos(self.w_b1d * self.t + self.theta_init), np.sin(self.w_b1d * self.t + self.theta_init), 0.])
-            self.b1d_dot = np.array([-self.w_b1d * np.sin(self.w_b1d * self.t + self.theta_init), self.w_b1d * np.cos(self.w_b1d * self.t + self.theta_init), 0.])
-            self.b1d_2dot = np.array([-self.w_b1d**2 * np.cos(self.w_b1d * self.t + self.theta_init), -self.w_b1d**2 * np.sin(self.w_b1d * self.t + self.theta_init), 0.])
+            w_b1d_term = self.w_b1d * self.t * exp_term + self.theta_init
+            d_dt_w_b1d_term = self.w_b1d * (exp_term + self.t * d_dt_exp_term)
+            self.b1d = np.array([np.cos(w_b1d_term), np.sin(w_b1d_term), 0.])
+            self.b1d_dot = np.array([-np.sin(w_b1d_term) * d_dt_w_b1d_term, np.cos(w_b1d_term) * d_dt_w_b1d_term, 0.])
+            # self.b1d = np.array([np.cos(self.w_b1d * self.t + self.theta_init), 
+            #                      np.sin(self.w_b1d * self.t + self.theta_init), 
+            #                      0.])
+            # self.b1d_dot = np.array([-self.w_b1d * np.sin(self.w_b1d*self.t + self.theta_init), 
+            #                          self.w_b1d * np.cos(self.w_b1d*self.t + self.theta_init), 
+            #                          0.])
             '''
             self.b1d = np.array([1.,0.,0.]) 
             self.b1d_dot, self.b1d_2dot = np.zeros(3), np.zeros(3)

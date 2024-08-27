@@ -10,7 +10,7 @@ def create_parser():
     parser.add_argument('--render', default=False, type=bool, help='Simulation visualization (default: False)')
 
     # args of environment:
-    parser.add_argument('--framework', default="CTDE", help='Name of framework: SARL, DTDE, or CTDE ')
+    parser.add_argument('--framework', default="CMP", help='Name of framework: NMP, DMP, or CMP ')
     parser.add_argument('--max_steps', default=4000, type=int, help='Maximum number of steps in each episode (default: 2000)')
     parser.add_argument('--max_timesteps', default=int(3e6), type=int, help='Number of total timesteps (default: 7e6)')
     parser.add_argument("--num_eval", type=float, default=10, help="Number of episodes to evaluate our trained model")
@@ -52,9 +52,9 @@ def create_parser():
     parser.add_argument("--noise_clip", default=0.5, type=float, help='Clipping range of target policy smoothing noise (default: 0.5)')
     parser.add_argument('--policy_update_freq', default=3, type=int, metavar='N', help='Frequency of “Delayed” policy updates (default: 2)')
     # Regularizing action policies for smooth control:
-    parser.add_argument('--lam_T', default=0.4, type=int, metavar='N', help='Temporal Smoothness (default: 0.5~0.8)')
-    parser.add_argument('--lam_S', default=0.3, type=int, metavar='N', help='Spatial Smoothness (default: 0.3~0.5)')
-    parser.add_argument('--lam_M', default=0.6, type=int, metavar='N', help='Magnitude Smoothness (default: 0.2~0.5)')
+    parser.add_argument('--lam_T', default=[0.4,0.4], type=int, metavar='N', help='Temporal Smoothness (default: 0.5~0.8)')
+    parser.add_argument('--lam_S', default=[0.3,0.3], type=int, metavar='N', help='Spatial Smoothness (default: 0.3~0.5)')
+    parser.add_argument('--lam_M', default=[0.6,0.6], type=int, metavar='N', help='Magnitude Smoothness (default: 0.2~0.5)')
 
     # args of replay buffer:
     parser.add_argument('--batch_size', default=256, type=int, metavar='N', help='Batch size of actor and critic networks (default: 256)')

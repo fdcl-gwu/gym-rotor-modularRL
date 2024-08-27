@@ -79,7 +79,7 @@ class QuadEnv(gym.Env):
         self.CIb1 = args.CIb1
         self.CW = args.Cw12
         self.reward_min = -np.ceil(self.Cx+self.CIx+self.Cv+self.Cb1+self.CIb1+self.CW)
-        if self.framework in ("CTDE","DTDE"):
+        if self.framework in ("CMP","DMP"):
             # Agent1's reward:
             self.Cw12 = args.Cw12
             self.reward_min_1 = -np.ceil(self.Cx+self.CIx+self.Cv+self.Cw12)
@@ -151,17 +151,17 @@ class QuadEnv(gym.Env):
 
         # Reward function:
         reward = self.reward_wrapper(obs)
-        if self.framework in ("CTDE","DTDE"):
+        if self.framework in ("CMP","DMP"):
             reward[0] = interp(reward[0], [self.reward_min_1, 0.], [0., 1.]) # linear interpolation [0,1]
             reward[1] = interp(reward[1], [self.reward_min_2, 0.], [0., 1.]) # linear interpolation [0,1]
-        elif self.framework == "SARL":
+        elif self.framework == "NMP":
             reward[0] = interp(reward[0], [self.reward_min, 0.], [0., 1.]) # linear interpolation [0,1]  
 
         # Terminal condition:
         done = self.done_wrapper(obs)
         if done[0]: # Out of boundary or crashed!
             reward[0] = self.reward_crash
-        if self.framework in ("CTDE","DTDE"):
+        if self.framework in ("CMP","DMP"):
             if done[1]: # Out of boundary or crashed!
                 reward[1] = self.reward_crash
 
@@ -452,7 +452,7 @@ class QuadEnv(gym.Env):
         self.eIb1.integrate(-self.beta*self.eIb1.error + eb1_norm*np.pi, self.dt) # b1 integral error
         self.eIb1_norm = clip(self.eIb1.error/self.eIb1_lim, -self.sat_sigma, self.sat_sigma)
 
-        if framework in ("CTDE","DTDE"):
+        if framework in ("CMP","DMP"):
             # Agent1's obs:
             ew12_norm = eW_norm[0]*b1 + eW_norm[1]*b2
             obs_1 = np.concatenate((ex_norm, self.eIx_norm, ev_norm, b3, ew12_norm), axis=None, dtype=np.float32)
@@ -462,7 +462,7 @@ class QuadEnv(gym.Env):
             '''
             obs_2 = np.concatenate((b1, eb1_norm, self.eIb1_norm, eW3_norm), axis=None, dtype=np.float32)
             error_obs_n = [obs_1, obs_2]
-        elif framework == "SARL":
+        elif framework == "NMP":
             # Single-agent's obs:
             R_vec = R.reshape(9, 1, order='F').flatten()
             obs = np.concatenate((ex_norm, self.eIx_norm, ev_norm, R_vec, eb1_norm, self.eIb1_norm, eW_norm), axis=None, dtype=np.float32)
@@ -500,9 +500,9 @@ class QuadEnv(gym.Env):
         # Init:
         if self.viewer is None:
             # Canvas.
-            self.viewer = canvas(title='Quadrotor with RL', width=self.screen_width, height=self.screen_height, \
+            self.viewer = canvas(title='', width=self.screen_width, height=self.screen_height, \
                                  center=vector(0, 0, cmd_pos[2]), background=color.white, \
-                                 forward=vector(1.4, 0., 1.0), up=vector(0, 0, -1), range=1.7) # forward = view point
+                                 forward=vector(1, 0., 1.0), up=vector(0, 0, -1), range=1.7) # forward = view point    
             
             # Quad body.
             self.render_quad1 = box(canvas=self.viewer, pos=vector(quad_pos[0], quad_pos[1], quad_pos[2]), \
@@ -548,11 +548,11 @@ class QuadEnv(gym.Env):
                                      shaftwidth=0.012, color=color.red, round=True)							
             
             # Inertial axis.				
-            self.e1_axis = arrow(pos=vector(1.25, -2.25, 0), axis=0.4*vector(1, 0, 0), \
+            self.e1_axis = arrow(pos=vector(2.75, -3.25, 0), axis=0.4*vector(1, 0, 0), \
                                  shaftwidth=0.02, color=color.red)
-            self.e2_axis = arrow(pos=vector(1.25, -2.25, 0), axis=0.4*vector(0, 1, 0), \
+            self.e2_axis = arrow(pos=vector(2.75, -3.25, 0), axis=0.4*vector(0, 1, 0), \
                                  shaftwidth=0.02, color=color.green)
-            self.e3_axis = arrow(pos=vector(1.25, -2.25, 0), axis=0.4*vector(0, 0, 1), \
+            self.e3_axis = arrow(pos=vector(2.75, -3.25, 0), axis=0.4*vector(0, 0, 1), \
                                  shaftwidth=0.02, color=color.blue)
 
             # Body axis.				
@@ -569,7 +569,7 @@ class QuadEnv(gym.Env):
                                         shaftwidth=0.01, color=color.blue)
 
             # Floor.
-            self.render_floor = box(pos=vector(0,0,0),size=vector(2.5,4.5,0.05), axis=vector(1,0,0), \
+            self.render_floor = box(pos=vector(0,0,0),size=vector(5.5,6.5,0.05), axis=vector(1,0,0), \
                                     opacity=0.2, color=color.black)
         
             # Real-time graphing.

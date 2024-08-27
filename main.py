@@ -26,7 +26,7 @@ class Learner:
         # Make a new OpenAI Gym environment:
         self.args = args
         self.framework = self.args.framework
-        if self.framework in ("CTDE","DTDE"):
+        if self.framework in ("CMP","DMP"):
             """----------------------------------------------------------------------------------------------
             | Agents   | Observations            | obs_dim | Actions        | act_dim | Rewards              |
             | module#1 | {ex, ev, b3, ew12, eIx} | 15      | {f_total, tau} | 4       | f(ex, eIx, ev, ew12) |
@@ -36,7 +36,7 @@ class Learner:
             self.args.N = 2  # num of agents
             self.args.obs_dim_n = [15, 6]
             self.args.action_dim_n = [4, 1]
-        elif self.framework == "SARL":
+        elif self.framework == "NMP":
             """-------------------------------------------------------------------------------------------------------------
             | Agents  | Observations                    | obs_dim | Actions      | act_dim | Rewards                       |
             | single  | {ex, ev, R, eW, eIx, eb1, eIb1} | 23      | {f_total, M} | 4       | f(ex, eIx, ev, eb1, eIb1, eW) |
@@ -68,9 +68,9 @@ class Learner:
         self.mode = 0  # set mode for generating curtain trajectories 
 
         # Initialize N agents:
-        if self.framework == "CTDE":
+        if self.framework == "CMP":
             self.agent_n = [MATD3(args, agent_id) for agent_id in range(self.args.N)]
-        elif self.framework in ("SARL", "DTDE"):
+        elif self.framework in ("NMP", "DMP"):
             self.agent_n = [TD3(args, agent_id) for agent_id in range(self.args.N)]
 
         # Initialize replay buffer:
@@ -78,22 +78,21 @@ class Learner:
         
         # Load trained models for evaluation:
         if self.args.test_model:
-            if self.framework == "CTDE": # 588_000, 557_000
-                total_steps, agent_id = 588_000, 0  # edit 'total_steps' accordingly
-                self.agent_n[agent_id].load(self.framework, total_steps, agent_id, self.seed)  # test best models
-                # self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)  # test solved models
-                total_steps, agent_id = 557_000, 1  # edit 'total_steps' accordingly
-                self.agent_n[agent_id].load(self.framework, total_steps, agent_id, self.seed)  # test best models 
-                # self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)  # test solved models
-            if self.framework == "DTDE":
-                total_steps, agent_id = 1710_000, 0  # edit 'total_steps' accordingly
+            if self.framework == "CMP":
+                total_steps, agent_id = 578_000, 0  # edit 'total_steps' accordingly
+                # self.agent_n[agent_id].load(self.framework, total_steps, agent_id, self.seed)  # test best models
+                self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)  # test solved models
+                total_steps, agent_id = 550_000, 1  # edit 'total_steps' accordingly
+                # self.agent_n[agent_id].load(self.framework, total_steps, agent_id, self.seed)  # test best models 
+                self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)  # test solved models
+            if self.framework == "DMP":
+                total_steps, agent_id = 582_000, 0  # edit 'total_steps' accordingly
                 # self.agent_n[agent_id].load(self.framework, etotal_steps, agent_id, self.seed)
                 self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)
-                total_steps, agent_id = 1480_000, 1  # edit 'total_steps' accordingly
+                total_steps, agent_id = 556_000, 1  # edit 'total_steps' accordingly
                 # self.agent_n[agent_id].load(self.framework, total_steps, agent_id, self.seed)
                 self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)
-            elif self.framework == "SARL":
-                # total_steps, agent_id = 615_000, 0  # edit 'total_steps' accordingly
+            elif self.framework == "NMP":
                 total_steps, agent_id = 1981_000, 0  # edit 'total_steps' accordingly
                 self.agent_n[agent_id].load(self.framework, total_steps, agent_id, self.seed)
                 # self.agent_n[agent_id].load_solved_model(self.framework, total_steps, agent_id, self.seed)
@@ -117,9 +116,9 @@ class Learner:
 
         # Initialize reward variables:
         max_total_reward = [0.8*self.eval_max_steps, 0.8*self.eval_max_steps]  # start saving best models after agents achieve 80% of the total reward for each episode
-        if self.framework in ("CTDE","DTDE"):
+        if self.framework in ("CMP","DMP"):
             episode_reward = [0.,0.]
-        elif self.framework == "SARL":
+        elif self.framework == "NMP":
             episode_reward = [0.]
         episode_timesteps = 0
 
@@ -149,7 +148,7 @@ class Learner:
             if episode_timesteps == self.args.max_steps:  # episode terminated!
                 done_episode = True
                 done_n[0] = True if (abs(ex) <= 0.03).all() and r_n[0] != -1. else False  # problem is solved! when ex < 0.03m
-                if self.framework in ("CTDE","DTDE"):
+                if self.framework in ("CMP","DMP"):
                     done_n[1] = True if abs(eb1) <= 0.03 and r_n[1] != -1. else False  # problem is solved! when eb1 < 0.03rad
 
             # Store a set of transitions in replay buffer:
@@ -193,9 +192,9 @@ class Learner:
 
                 # Log data:
                 if self.total_timesteps >= self.args.start_timesteps:
-                    if self.framework in ("CTDE","DTDE"):
+                    if self.framework in ("CMP","DMP"):
                         log_step.write('{}\t {}\n'.format(self.total_timesteps, episode_reward))
-                    elif self.framework == "SARL":
+                    elif self.framework == "NMP":
                         log_step.write('{}\t {}\n'.format(self.total_timesteps, episode_reward))
                     log_step.flush()
                 
@@ -205,9 +204,9 @@ class Learner:
                 xd, vd, b1d, b1d_dot, Wd = self.trajectory_generator.get_desired(state, self.mode)
                 self.env.set_goal_state(xd, vd, b1d, b1d_dot, Wd)
                 obs_n = self.env.get_norm_error_state(self.framework)
-                if self.framework in ("CTDE","DTDE"):
+                if self.framework in ("CMP","DMP"):
                     episode_reward = [0.,0.]
-                elif self.framework == "SARL":
+                elif self.framework == "NMP":
                     episode_reward = [0.]
                 episode_timesteps = 0
 
@@ -220,9 +219,9 @@ class Learner:
                 eval_reward, benchmark_reward = self.eval_policy()
 
                 # Logging updates:
-                if self.framework in ("CTDE","DTDE"):
+                if self.framework in ("CMP","DMP"):
                     log_eval.write('{}\t {}\t {}\n'.format(self.total_timesteps, benchmark_reward, eval_reward))
-                elif self.framework == "SARL":
+                elif self.framework == "NMP":
                     log_eval.write('{}\t {}\t {}\n'.format(self.total_timesteps, benchmark_reward, eval_reward))
                 log_eval.flush()
 
@@ -243,9 +242,9 @@ class Learner:
 
     def eval_policy(self):
         # Make OpenAI Gym environment for evaluation:
-        if self.framework in ("CTDE","DTDE"):
+        if self.framework in ("CMP","DMP"):
             eval_env = DecoupledWrapper()
-        elif self.framework == "SARL":
+        elif self.framework == "NMP":
             eval_env = CoupledWrapper()
 
         # Initialize the trajectory generator for evaluation:
@@ -258,16 +257,16 @@ class Learner:
 
         # Save rewards and models:
         success_count = []
-        if self.framework in ("CTDE","DTDE"):
+        if self.framework in ("CMP","DMP"):
             success, eval_reward = [False,False], [0.,0.]
-        elif self.framework == "SARL":
+        elif self.framework == "NMP":
             success, eval_reward = [False], [0.]
         benchmark_reward = 0. # Reward for benchmark
 
         print("--------------------------------------------------------------------------------------------------------------------------------")
         for num_eval in range(self.args.num_eval):
             # Set mode for generating trajectories:
-            mode = self.mode  #TODO: set eval mode to 8
+            mode = self.mode
             """ Mode List -----------------------------------------------
             0 or 1: idle and warm-up (approach to xd = [0,0,0])
             2: take-off
@@ -288,9 +287,9 @@ class Learner:
             obs_n = eval_env.get_norm_error_state(self.framework)
 
             # Initialize reward variables:
-            if self.framework in ("CTDE","DTDE"):
+            if self.framework in ("CMP","DMP"):
                 episode_reward = [0.,0.]
-            elif self.framework == "SARL":
+            elif self.framework == "NMP":
                 episode_reward = [0.]
             episode_timesteps = 0
             episode_benchmark_reward = 0.
@@ -308,6 +307,17 @@ class Learner:
                 act_n = [agent.choose_action(obs, explor_noise_std=0.) for agent, obs in zip(self.agent_n, obs_n)]
                 action = np.concatenate((act_n), axis=None)
 
+                # Save data:
+                if self.args.save_log:
+                    _, eIx, _, eb1, eIb1 = get_error_state(obs_n, self.x_lim, self.v_lim, self.eIx_lim, self.eIb1_lim, args)
+                    obs_list.append(np.concatenate((state, eIx, eb1, eIb1), axis=None))
+                    # Compute b1c
+                    R = state[6:15].reshape(3,3,order='F')
+                    b3 = R@np.array([0.,0.,1.])
+                    b1c = b1d - np.dot(b1d, b3) * b3
+                    cmd_list.append(np.concatenate((xd, vd, b1c, Wd), axis=None))
+                    act_list.append(action)
+
                 # Perform actions:
                 obs_next_n, r_n, done_n, _, _ = eval_env.step(copy.deepcopy(action))
                 eval_env.render() if self.args.render == True else None
@@ -318,24 +328,14 @@ class Learner:
                 episode_reward = [float('{:.4f}'.format(episode_reward[agent_id]+r)) for agent_id, r in zip(range(self.args.N), r_n)]
                 episode_benchmark_reward += benchmark_reward_func(ex, eb1)
 
-                # Save data:
-                if self.args.save_log:
-                    act_list.append(action)
-                    obs_list.append(np.concatenate((state, eIx, eb1, eIb1), axis=None))
-                    # Compute b1c
-                    R = state[6:15].reshape(3,3,order='F')
-                    b3 = R@np.array([0.,0.,1.])
-                    b1c = b1d - np.dot(b1d, b3) * b3
-                    cmd_list.append(np.concatenate((xd, vd, b1c, Wd), axis=None))
-
                 # Episode termination:
                 if any(done_n) or episode_timesteps == self.eval_max_steps:
                     print(f"eval_iter: {num_eval+1}, time_stpes: {episode_timesteps}, episode_reward: {episode_reward}, episode_benchmark_reward: {episode_benchmark_reward:.3f}, ex: {ex}, eb1: {eb1:.3f}")
                     if episode_timesteps == self.eval_max_steps:
-                        if self.framework in ("CTDE","DTDE"):
+                        if self.framework in ("CMP","DMP"):
                             success[0] = True if (abs(ex) <= 0.01).all() else False
                             success[1] = True if abs(eb1) <= 0.01 else False
-                        elif self.framework == "SARL":
+                        elif self.framework == "NMP":
                             success[0] = True if (abs(ex) <= 0.01).all() else False
                     success_count.append(success)
                     break

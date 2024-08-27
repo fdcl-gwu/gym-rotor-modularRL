@@ -78,9 +78,9 @@ This repo provides several useful wrappers that can be found in `./gym_rotor/wra
 
 ## Examples
 Hyperparameters can be adjusted in `args_parse.py`.
-For example, training with the CTDE framework can be run by
+For example, training with the CMP framework can be run by
 ```bash
-python3 main.py --framework CTDE --seed 789
+python3 main.py --framework CMP --seed 789
 ```
 
 ## Citation
