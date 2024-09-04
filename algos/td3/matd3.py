@@ -30,9 +30,7 @@ class MATD3(object):
         self.target_noise = args.target_noise
         self.noise_clip = args.noise_clip
         self.policy_update_freq = args.policy_update_freq
-        self.lam_T = args.lam_T[agent_id]
-        self.lam_S = args.lam_S[agent_id]
-        self.lam_M = args.lam_M[agent_id]
+        self.lam_T, self.lam_S, self.lam_M = args.lam_T, args.lam_S, args.lam_M
         self.total_it = 0
 
         # Create an individual actor and critic for each agent according to the 'agent_id':
